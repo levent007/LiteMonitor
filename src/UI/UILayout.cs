@@ -1,11 +1,13 @@
 ﻿using LiteMonitor.src.Core;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace LiteMonitor
 {
+    /// <summary>
+    /// 单个组的布局信息（名称 + 块区域 + 子项）
+    /// </summary>
     public class GroupLayoutInfo
     {
         public string GroupName { get; set; }
@@ -20,59 +22,65 @@ namespace LiteMonitor
         }
     }
 
+    /// <summary>
+    /// -------- UILayout：布局计算层 --------
+    /// 只做数学计算，不参与绘制
+    /// 新规则：
+    ///   1. GroupBottom = 外间距（只控制组块之间 & 最后一组到底部）
+    ///   2. 标题放块外，不计入组块高度
+    ///   3. groupHeight = Padding*2 + innerHeight（纯内容）
+    /// </summary>
     public class UILayout
     {
         private readonly Theme _t;
         public UILayout(Theme t) { _t = t; }
 
         /// <summary>
-        /// 构建界面布局（统一 Network、高度逻辑；为组标题预留独立空间）
+        /// 计算所有组块与子项的位置，并返回内容总高度
         /// </summary>
         public int Build(List<GroupLayoutInfo> groups)
         {
             int x = _t.Layout.Padding;
             int y = _t.Layout.Padding;
-
-            // === 1️⃣ 主标题空间（根据语言配置判断是否显示） ===
-            string titleText = LanguageManager.T("Title");
-            if (!string.IsNullOrEmpty(titleText) && titleText != "Title")
-                y += _t.Layout.RowHeight + _t.Layout.Padding;
-
-
-
             int w = _t.Layout.Width - _t.Layout.Padding * 2;
             int rowH = _t.Layout.RowHeight;
 
-            foreach (var g in groups)
-            {
-                // === 2️⃣ 测量组标题高度 ===
-                int headerH = TextRenderer.MeasureText(
-                    LanguageManager.T($"Groups.{g.GroupName}"), _t.FontGroup).Height;
-                headerH = (int)System.Math.Ceiling(headerH * 1.15);
+            // ===== 主标题占位（块外）=====
+            string title = LanguageManager.T("Title");
+            if (!string.IsNullOrEmpty(title) && title != "Title")
+                y += rowH + _t.Layout.Padding;
 
-                // === 3️⃣ 内容区高度 ===
+            // ===== 遍历所有分组 =====
+            for (int idx = 0; idx < groups.Count; idx++)
+            {
+                var g = groups[idx];
+
+                // ==== 计算内部内容高度 ====
                 int innerHeight;
-                if (g.GroupName.Equals("NET", StringComparison.OrdinalIgnoreCase) ||
-                    g.GroupName.Equals("DISK", StringComparison.OrdinalIgnoreCase))
+
+                if (g.GroupName.Equals("NET", System.StringComparison.OrdinalIgnoreCase) ||
+                    g.GroupName.Equals("DISK", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    // 双行：一行主值 + 一行说明/单位，附加行距 = 行高 * 0.35（你可再调）
-                    int twoLineH = rowH + (int)Math.Ceiling(rowH * 0.1);
-                    innerHeight = twoLineH + _t.Layout.ItemGap; // 单条 + 行间距
+                    // 双行（Up/Down / Read/Write）
+                    int twoLineH = rowH + (int)System.Math.Ceiling(rowH * 0.10);
+                    innerHeight = twoLineH + _t.Layout.ItemGap;
                 }
                 else
                 {
-                    innerHeight = g.Items.Count * rowH + (g.Items.Count - 1) * _t.Layout.ItemGap;
+                    innerHeight =
+                        g.Items.Count * rowH +
+                        (g.Items.Count - 1) * _t.Layout.ItemGap;
                 }
 
-                // === 4️⃣ 组块高度 ===
-                int groupHeight = _t.Layout.GroupPadding * 2
-                                + innerHeight
-                                + _t.Layout.GroupBottom;
+                // ==== 计算组块高度（不再包含 GroupBottom）====
+                int groupHeight =
+                    _t.Layout.GroupPadding * 2 +
+                    innerHeight;
 
-                // === 5️⃣ 分配块区域 ===
+                // 保存块区域
                 g.Bounds = new Rectangle(x, y, w, groupHeight);
 
-                // === 6️⃣ 子项布局 ===
+                // 子项排布
                 int itemY = y + _t.Layout.GroupPadding;
                 foreach (var it in g.Items)
                 {
@@ -80,13 +88,16 @@ namespace LiteMonitor
                     itemY += rowH + _t.Layout.ItemGap;
                 }
 
-                // === 7️⃣ 下一个组起点 ===
-                y += groupHeight + _t.Layout.GroupSpacing + _t.Layout.GroupBottom;
+                // 不是最后一组 → 组间加 spacing + bottom
+                if (idx < groups.Count - 1)
+                    y += groupHeight + _t.Layout.GroupSpacing + _t.Layout.GroupBottom;
+                else
+                    y += groupHeight; // 最后一组不加  spacing + bottom
             }
 
-            // === 8️⃣ 最终窗口高度 ===
-            // 返回内容区总高度：最后一个组块底部到当前 y 的距离，扣掉末尾追加的 GroupSpacing/Bottom
-            int contentHeight = groups.Count > 0 ? (groups[^1].Bounds.Bottom + _t.Layout.Padding) : _t.Layout.Width;
+            // ===== 内容总高度（最后一组到底部 = Padding + GroupBottom）=====
+            int contentHeight = y + _t.Layout.Padding;
+
             return contentHeight;
         }
     }

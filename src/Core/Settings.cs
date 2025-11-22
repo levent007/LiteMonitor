@@ -9,7 +9,6 @@ namespace LiteMonitor
     {
         // ====== 主题 / 行为基础 ======
         public string Skin { get; set; } = "DarkFlat_Classic";
-        public int PanelWidth { get; set; } = 240;   // ← 默认值与主题默认宽度一致
         public bool TopMost { get; set; } = true;
         public bool AutoStart { get; set; } = false;
         public int RefreshMs { get; set; } = 300; //刷新时间
@@ -19,10 +18,18 @@ namespace LiteMonitor
         public Point Position { get; set; } = new Point(-1, -1);
 
         // ====== 新增：用户偏好（从主题里迁移出来的 & 新功能需要） ======
+        public bool HorizontalMode { get; set; } = false;
         public double Opacity { get; set; } = 0.85;   // ← 窗口透明度（原 theme.window.opacity）
         public string Language { get; set; } = "zh";  // ← 语言：zh / en（对应 zh.json / en.json）
         public bool ClickThrough { get; set; } = false; // ← 鼠标穿透
         public bool AutoHide { get; set; } = true;     // ← 靠边自动隐藏
+        public int PanelWidth { get; set; } = 240;   // ← 用户默认宽度
+        public double UIScale { get; set; } = 1.0;  // 用户 UI 缩放，默认 1.00
+
+        public string PreferredNetwork { get; set; } = "";  // 手动指定网卡，""=自动
+        public string PreferredDisk { get; set; } = "";     // 手动指定磁盘，""=自动
+
+
 
         // ====== 显示项（整组/子项开关）======
         public EnabledSet Enabled { get; set; } = new();

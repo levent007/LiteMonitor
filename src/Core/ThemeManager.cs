@@ -23,7 +23,7 @@ namespace LiteMonitor.src.Core
     /// </summary>
     public class LayoutConfig
     {
-        public int Width { get; set; } = 220;
+        public int Width { get; set; } = 180;//不会被实际使用，运行时由 Settings.PanelWidth 覆盖
         public int RowHeight { get; set; } = 40;
         public int Padding { get; set; } = 12;
 
@@ -36,6 +36,24 @@ namespace LiteMonitor.src.Core
 
         public int ItemGap { get; set; } = 6;
         public int GroupTitleOffset { get; set; } = 6;
+
+        public void Scale(float s)
+        {
+            if (s <= 0f || Math.Abs(s - 1f) < 0.01f)
+                return;
+
+            Width = (int)(Width * s);
+            RowHeight = (int)(RowHeight * s);
+            Padding = (int)(Padding * s);
+            CornerRadius = (int)(CornerRadius * s);
+            GroupRadius = (int)(GroupRadius * s);
+            GroupPadding = (int)(GroupPadding * s);
+            GroupSpacing = (int)(GroupSpacing * s);
+            GroupBottom = (int)(GroupBottom * s);
+            GroupTitleOffset = (int)(GroupTitleOffset * s);
+            ItemGap = (int)(ItemGap * s);
+        }
+
 
     }
 
@@ -58,7 +76,6 @@ namespace LiteMonitor.src.Core
         public double Value { get; set; } = 10.5;
 
         public bool Bold { get; set; } = true;
-        public double Scale { get; set; } = 1.0;
     }
 
     /// <summary>
@@ -79,7 +96,7 @@ namespace LiteMonitor.src.Core
         public ThresholdSet Temp { get; set; } = new() { Warn = 50, Crit = 70 };
         public ThresholdSet Vram { get; set; } = new() { Warn = 65, Crit = 85 };
         public ThresholdSet Mem { get; set; } = new() { Warn = 65, Crit = 85 };
-        public ThresholdSet NetKBps { get; set; } = new() { Warn = 2048, Crit = 8192 };
+        public ThresholdSet NetKBps { get; set; } = new() { Warn = 2048 * 1024, Crit = 8192 * 1024 };
     }
 
     /// <summary>
@@ -137,25 +154,46 @@ namespace LiteMonitor.src.Core
             try
             {
                 var style = Font.Bold ? FontStyle.Bold : FontStyle.Regular;
-                float scale = (float)Math.Max(0.5, Math.Min(3.0, Font.Scale));
 
-                FontTitle = new Font(Font.Family, (float)Font.Title * scale, style, GraphicsUnit.Point);
-                FontGroup = new Font(Font.Family, (float)Font.Group * scale, style, GraphicsUnit.Point);
-                FontItem = new Font(Font.Family, (float)Font.Item * scale, style, GraphicsUnit.Point);
+                // ⚠️ 不再做任何缩放，保留“基础字体”
+                FontTitle = new Font(Font.Family, (float)Font.Title, style);
+                FontGroup = new Font(Font.Family, (float)Font.Group, style);
+                FontItem = new Font(Font.Family, (float)Font.Item, style);
 
-                var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily) ? Font.Family : Font.ValueFamily;
-                FontValue = new Font(valueFamily, (float)Font.Value * scale, style, GraphicsUnit.Point);
+                var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily)
+                    ? Font.Family
+                    : Font.ValueFamily;
+
+                FontValue = new Font(valueFamily, (float)Font.Value, style);
             }
             catch
             {
-                // 兜底：系统默认字体，避免 JSON 配置错误导致崩溃
-                FontTitle = SystemFonts.CaptionFont;
-                FontGroup = SystemFonts.CaptionFont;
-                FontItem = SystemFonts.CaptionFont;
-                FontValue = SystemFonts.CaptionFont;
+                FontTitle = FontGroup = FontItem = FontValue = SystemFonts.CaptionFont;
             }
         }
+        public void Scale(float dpiScale, float userScale)
+        {
+            // 布局用 dpi × user
+            float layoutScale = dpiScale * userScale;
+            Layout.Scale(layoutScale);
+
+            // 字体只用 userScale：“补”用户缩放，不再自己乘 DPI
+            var style = Font.Bold ? FontStyle.Bold : FontStyle.Regular;
+            var valueFamily = string.IsNullOrWhiteSpace(Font.ValueFamily)
+                ? Font.Family
+                : Font.ValueFamily;
+
+            float f = userScale <= 0 ? 1.0f : userScale;
+
+            FontTitle = new Font(Font.Family, (float)Font.Title * f, style);
+            FontGroup = new Font(Font.Family, (float)Font.Group * f, style);
+            FontItem = new Font(Font.Family, (float)Font.Item * f, style);
+            FontValue = new Font(valueFamily, (float)Font.Value * f, style);
+        }
+
+
     }
+
 
     /// <summary>
     /// 主题管理器：负责读取 JSON、反序列化、构建字体、暴露 Current。

@@ -32,6 +32,9 @@
         <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </Content>
 </ItemGroup>
+<ItemGroup>
+  <Compile Remove="src\UI\HorizontalController.cs" />
+</ItemGroup>
 
 <!-- 引入文件资源管理 -->
   <ItemGroup>

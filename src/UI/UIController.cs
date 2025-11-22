@@ -13,11 +13,15 @@ namespace LiteMonitor
         private readonly Form _form;
         private readonly HardwareMonitor _mon;
         private readonly System.Windows.Forms.Timer _timer;
-        private bool _dragging = false;
-        private UILayout? _layout;
+
+        private UILayout _layout;
         private bool _layoutDirty = true;
+        private bool _dragging = false;
 
         private List<GroupLayoutInfo> _groups = new();
+        private List<Column> _hxCols = new();
+        private HorizontalLayout? _hxLayout;
+
 
         public UIController(Settings cfg, Form form)
         {
@@ -26,80 +30,134 @@ namespace LiteMonitor
             _mon = new HardwareMonitor(cfg);
             _mon.OnValuesUpdated += () => _form.Invalidate();
 
-            _timer = new System.Windows.Forms.Timer { Interval = Math.Max(100, _cfg.RefreshMs) };
+
+            
+
+            _timer = new System.Windows.Forms.Timer { Interval = Math.Max(80, _cfg.RefreshMs) };
             _timer.Tick += (_, __) => Tick();
             _timer.Start();
 
-            // 初始化主题与语言的唯一入口
-            ApplyTheme(cfg.Skin);
+            ApplyTheme(_cfg.Skin);
         }
 
-        // ========== 主题切换 ==========
+
+
+        /// <summary>
+        /// 真·换主题时调用
+        /// </summary>
         public void ApplyTheme(string name)
         {
-            // 语言 + 主题的唯一入口
+            // 加载语言与主题
             LanguageManager.Load(_cfg.Language);
             ThemeManager.Load(name);
 
-            // 换主题需清理绘制缓存（第③步会新增该方法）
+            // 清理绘制缓存
             UIRenderer.ClearCache();
-
             var t = ThemeManager.Current;
 
-            // 🟡 新增：DPI 缩放
+            // ========== DPI 处理 ==========
+            float dpiScale = _form.DeviceDpi / 96f;   // 系统标准 DPI 为 96
+            float userScale = (float)_cfg.UIScale;    // 用户自定义缩放
+            float finalScale = dpiScale * userScale;
 
-            float scale = _form.DeviceDpi / 96f;
+            // 让 Theme 根据两个缩放因子分别缩放界面和字体
+            t.Scale(dpiScale, userScale);
 
-            var l = t.Layout;
+            // ========== 面板宽度也要缩放 ==========
+            // 注意：横屏和竖屏都需要同步设置窗口宽度
+            int scaledWidth = (int)(_cfg.PanelWidth * finalScale);
 
-            l.Width = (int)(l.Width * scale);
-            l.RowHeight = (int)(l.RowHeight * scale);
-            l.Padding = (int)(l.Padding * scale);
-            l.GroupPadding = (int)(l.GroupPadding * scale);
-            l.GroupSpacing = (int)(l.GroupSpacing * scale);
-            l.GroupBottom = (int)(l.GroupBottom * scale);
-            l.GroupTitleOffset = (int)(l.GroupTitleOffset * scale);
-            l.ItemGap = (int)(l.ItemGap * scale);
-            l.CornerRadius = (int)(l.CornerRadius * scale);
-            l.GroupRadius = (int)(l.GroupRadius * scale);
-
-            // panel width 也要放大
-            // ✅ 修复点：同步主题宽度或设置里的面板宽度
-            if (_cfg.PanelWidth > 100)
+            // 竖屏模式：使用 PanelWidth
+            if (!_cfg.HorizontalMode)
             {
-                t.Layout.Width = (int)(_cfg.PanelWidth * scale);
+                t.Layout.Width = (int)(_cfg.PanelWidth * finalScale);
+                _form.Width = t.Layout.Width;
             }
-            else
-            {
-                t.Layout.Width = (int)(t.Layout.Width * scale);
-            }
-            _form.Width = t.Layout.Width;
 
-            // ✅ 修复点：切主题时同步窗体背景色，避免边缘露底色
+            // 背景色
             _form.BackColor = ThemeManager.ParseColor(t.Color.Background);
 
-            // ✅ 重新创建布局对象
+            // 重建竖屏布局对象
             _layout = new UILayout(t);
+
+            // 重建指标数据
+            BuildMetrics();
             _layoutDirty = true;
 
-            // ✅ 重建硬件项列表
-            BuildMetrics();
+            // 刷新 Timer 的刷新间隔（关键）
+            _timer.Interval = Math.Max(80, _cfg.RefreshMs);
 
-            // ❌ 原逻辑：仅逐组刷新，无法覆盖边缘
-            // foreach (var g in _groups)
-            //     _form.Invalidate(g.Bounds, false);
+            // 刷新渲染
+            _form.Invalidate();
+            _form.Update();
 
-            // ✅ 修复点：改为整窗重绘，避免上/左边缘出现白线
-            _form.Invalidate();     // 全部客户区
-            _form.Update();         // 立即刷新（确保即时重绘）
-
-            // ✅ 可选触发圆角刷新（防止主题宽度变化时圆角不同步）
-            // _form.ApplyRoundedCorners();  // 如你的 MainForm 暴露了此方法可打开此行
+            // ========== 横屏模式布局器（必须在 form.Width 设置后创建）==========
+            if (_cfg.HorizontalMode)
+            {
+                // 横屏必须使用窗口真实宽度，而不是主题的 Layout.Width
+                _hxLayout = new HorizontalLayout(t, _form.Width);
+            }
         }
 
 
 
+        /// <summary>
+        /// 轻量级更新（不重新读主题）
+        /// </summary>
+        public void RebuildLayout()
+        {
+            BuildMetrics();
+            _layoutDirty = true;
+
+            _form.Invalidate();
+            _form.Update();
+        }
+
+        /// <summary>
+        /// 窗体拖动状态
+        /// </summary>
         public void SetDragging(bool dragging) => _dragging = dragging;
+
+        /// <summary>
+        /// 主渲染入口
+        /// </summary>
+        public void Render(Graphics g)
+        {
+            var t = ThemeManager.Current;
+            _layout ??= new UILayout(t);
+
+            // === 横屏模式 ===
+            if (_cfg.HorizontalMode)
+            {
+                BuildHorizontalColumns();
+
+                // layout.Build 计算面板高度 & 面板宽度
+                int h = _hxLayout.Build(_hxCols);
+
+                // ★★ 正确设置横屏宽度：Layout 已经算好了 panelWidth
+                _form.Width = _hxLayout.PanelWidth;
+                _form.Height = h;
+
+                // Renderer 使用 panelWidth
+                HorizontalRenderer.Render(g, t, _hxCols, _hxLayout.PanelWidth);
+                return;
+            }
+
+
+            // =====================
+            //     竖屏模式
+            // =====================
+            if (_layoutDirty)
+            {
+                int h = _layout.Build(_groups);
+                _form.Height = h;
+                _layoutDirty = false;
+            }
+
+            UIRenderer.Render(g, _groups, t);
+        }
+
+
 
         private bool _busy = false;
 
@@ -116,7 +174,6 @@ namespace LiteMonitor
                     foreach (var it in g.Items)
                     {
                         it.Value = _mon.Get(it.Key);
-
                         it.TickSmooth(_cfg.AnimationSpeed);
                     }
 
@@ -128,78 +185,128 @@ namespace LiteMonitor
             }
         }
 
-
-        // ========== 动态构建分组与项目 ==========
+        /// <summary>
+        /// 生成各分组与项目
+        /// </summary>
         private void BuildMetrics()
         {
             var t = ThemeManager.Current;
             _groups = new List<GroupLayoutInfo>();
 
             // === CPU ===
-            var cpuItems = new List<MetricItem>();
+            var cpu = new List<MetricItem>();
             if (_cfg.Enabled.CpuLoad)
-                cpuItems.Add(new MetricItem { Key = "CPU.Load", Label = LanguageManager.T("Items.CPU.Load") });
+                cpu.Add(new MetricItem { Key = "CPU.Load", Label = LanguageManager.T("Items.CPU.Load") });
             if (_cfg.Enabled.CpuTemp)
-                cpuItems.Add(new MetricItem { Key = "CPU.Temp", Label = LanguageManager.T("Items.CPU.Temp") });
-            if (cpuItems.Count > 0)
-                _groups.Add(new GroupLayoutInfo("CPU", cpuItems));
+                cpu.Add(new MetricItem { Key = "CPU.Temp", Label = LanguageManager.T("Items.CPU.Temp") });
+            if (cpu.Count > 0) _groups.Add(new GroupLayoutInfo("CPU", cpu));
 
             // === GPU ===
-            var gpuItems = new List<MetricItem>();
+            var gpu = new List<MetricItem>();
             if (_cfg.Enabled.GpuLoad)
-                gpuItems.Add(new MetricItem { Key = "GPU.Load", Label = LanguageManager.T("Items.GPU.Load") });
+                gpu.Add(new MetricItem { Key = "GPU.Load", Label = LanguageManager.T("Items.GPU.Load") });
             if (_cfg.Enabled.GpuTemp)
-                gpuItems.Add(new MetricItem { Key = "GPU.Temp", Label = LanguageManager.T("Items.GPU.Temp") });
+                gpu.Add(new MetricItem { Key = "GPU.Temp", Label = LanguageManager.T("Items.GPU.Temp") });
             if (_cfg.Enabled.GpuVram)
-                gpuItems.Add(new MetricItem { Key = "GPU.VRAM", Label = LanguageManager.T("Items.GPU.VRAM") });
-            if (gpuItems.Count > 0)
-                _groups.Add(new GroupLayoutInfo("GPU", gpuItems));
+                gpu.Add(new MetricItem { Key = "GPU.VRAM", Label = LanguageManager.T("Items.GPU.VRAM") });
+            if (gpu.Count > 0) _groups.Add(new GroupLayoutInfo("GPU", gpu));
 
-            // === 内存 ===
-            var memItems = new List<MetricItem>();
+            // === MEM ===
+            var mem = new List<MetricItem>();
             if (_cfg.Enabled.MemLoad)
-                memItems.Add(new MetricItem { Key = "MEM.Load", Label = LanguageManager.T("Items.MEM.Load") });
-            if (memItems.Count > 0)
-                _groups.Add(new GroupLayoutInfo("MEM", memItems));
+                mem.Add(new MetricItem { Key = "MEM.Load", Label = LanguageManager.T("Items.MEM.Load") });
+            if (mem.Count > 0) _groups.Add(new GroupLayoutInfo("MEM", mem));
 
-            // === 磁盘 ===
-            var diskItems = new List<MetricItem>();
+            // === DISK ===
+            var disk = new List<MetricItem>();
             if (_cfg.Enabled.DiskRead)
-                diskItems.Add(new MetricItem { Key = "DISK.Read", Label = LanguageManager.T("Items.DISK.Read") });
+                disk.Add(new MetricItem { Key = "DISK.Read", Label = LanguageManager.T("Items.DISK.Read") });
             if (_cfg.Enabled.DiskWrite)
-                diskItems.Add(new MetricItem { Key = "DISK.Write", Label = LanguageManager.T("Items.DISK.Write") });
-            if (diskItems.Count > 0)
-                _groups.Add(new GroupLayoutInfo("DISK", diskItems));
+                disk.Add(new MetricItem { Key = "DISK.Write", Label = LanguageManager.T("Items.DISK.Write") });
+            if (disk.Count > 0) _groups.Add(new GroupLayoutInfo("DISK", disk));
 
-            // === 网络 ===
-            var netItems = new List<MetricItem>();
+            // === NET ===
+            var net = new List<MetricItem>();
             if (_cfg.Enabled.NetUp)
-                netItems.Add(new MetricItem { Key = "NET.Up", Label = LanguageManager.T("Items.NET.Up") });
+                net.Add(new MetricItem { Key = "NET.Up", Label = LanguageManager.T("Items.NET.Up") });
             if (_cfg.Enabled.NetDown)
-                netItems.Add(new MetricItem { Key = "NET.Down", Label = LanguageManager.T("Items.NET.Down") });
-            if (netItems.Count > 0)
-                _groups.Add(new GroupLayoutInfo("NET", netItems));
-
+                net.Add(new MetricItem { Key = "NET.Down", Label = LanguageManager.T("Items.NET.Down") });
+            if (net.Count > 0) _groups.Add(new GroupLayoutInfo("NET", net));
         }
 
-        // ========== 绘制接口 ==========
-        public void Render(Graphics g)
+        private void BuildHorizontalColumns()
         {
-            var t = ThemeManager.Current;
-            _layout ??= new UILayout(t);
+            var cols = new List<Column>();
 
-            if (_layoutDirty)
+            // CPU
+            if (_cfg.Enabled.CpuLoad || _cfg.Enabled.CpuTemp)
             {
-                int contentH = _layout.Build(_groups);   // ← Build 返回内容高度
-                _layoutDirty = false;
-                _form.Height = contentH + t.Layout.Padding;
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.CpuLoad ? new MetricItem { Key = "CPU.Load" } : null,
+                    Bottom = _cfg.Enabled.CpuTemp ? new MetricItem { Key = "CPU.Temp" } : null
+                });
             }
 
-            UIRenderer.Render(g, _groups, t);
+            // GPU
+            if (_cfg.Enabled.GpuLoad || _cfg.Enabled.GpuTemp)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.GpuLoad ? new MetricItem { Key = "GPU.Load" } : null,
+                    Bottom = _cfg.Enabled.GpuTemp ? new MetricItem { Key = "GPU.Temp" } : null
+                });
+            }
 
+            // MEM + VRAM 合并列
+            if (_cfg.Enabled.MemLoad || _cfg.Enabled.GpuVram)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.MemLoad ? new MetricItem { Key = "MEM.Load" } : null,
+                    Bottom = _cfg.Enabled.GpuVram ? new MetricItem { Key = "GPU.VRAM" } : null
+                });
+            }
+
+            // DISK
+            if (_cfg.Enabled.DiskRead || _cfg.Enabled.DiskWrite)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.DiskRead ? new MetricItem { Key = "DISK.Read" } : null,
+                    Bottom = _cfg.Enabled.DiskWrite ? new MetricItem { Key = "DISK.Write" } : null
+                });
+            }
+
+            // NET
+            if (_cfg.Enabled.NetUp || _cfg.Enabled.NetDown)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.NetUp ? new MetricItem { Key = "NET.Up" } : null,
+                    Bottom = _cfg.Enabled.NetDown ? new MetricItem { Key = "NET.Down" } : null
+                });
+            }
+
+            // 填充值（平滑）
+            foreach (var c in cols)
+            {
+                if (c.Top != null)
+                {
+                    c.Top.Value = _mon.Get(c.Top.Key);
+                    c.Top.TickSmooth(_cfg.AnimationSpeed);
+                }
+                if (c.Bottom != null)
+                {
+                    c.Bottom.Value = _mon.Get(c.Bottom.Key);
+                    c.Bottom.TickSmooth(_cfg.AnimationSpeed);
+                }
+            }
+
+            _hxCols = cols;
         }
 
-        // ========== 清理 ==========
+
         public void Dispose()
         {
             _timer.Stop();
