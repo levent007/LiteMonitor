@@ -21,11 +21,11 @@ LiteMonitor 是一款基于 **Windows** 的现代化桌面系统监控工具。
 
 | 分类 | 监控指标 |
 |------|-----------|
-| 💻 **处理器（CPU）** | 实时监测 CPU 使用率与温度，支持多核心平均与峰值显示。 |
-| 🎮 **显卡（GPU）** | 展示 GPU 使用率、核心温度、显存占用情况，兼容 NVIDIA / AMD / Intel 显卡。 |
-| 💾 **内存（Memory）** | 显示系统内存使用率，清晰了解整体内存负载水平。 |
-| 📀 **磁盘（Disk）** | 监控磁盘读取与写入速度（KB/s、MB/s），帮助分析存储 I/O 活跃情况。支持自动/手动选择磁盘。 |
-| 🌐 **网络（Network）** | 实时显示上传与下载速度（KB/s、MB/s），提供轻量级网络流量监控。支持自动/手动选择网卡。 |
+| <span style="white-space: nowrap;">💻 **处理器（CPU）**</span> | 实时监测 CPU 使用率与温度，支持多核心平均与峰值显示。 |
+| <span style="white-space: nowrap;">🎮 **显卡（GPU）**</span> | 展示 GPU 使用率、核心温度、显存占用情况，兼容 NVIDIA / AMD / Intel 显卡。 |
+| <span style="white-space: nowrap;">💾 **内存（Memory）**</span> | 显示系统内存使用率，清晰了解整体内存负载水平。 |
+| <span style="white-space: nowrap;">📀 **磁盘（Disk）**</span> | 监控磁盘读取与写入速度（KB/s、MB/s），帮助分析存储 I/O 活跃情况。支持自动/手动选择磁盘。 |
+| <span style="white-space: nowrap;">🌐 **网络（Network）**</span> | 实时显示上传与下载速度（KB/s、MB/s），提供轻量级网络流量监控。支持自动/手动选择网卡。 |
 
 > 💡 LiteMonitor 持续完善中，如需更多监控项或功能支持，欢迎在 [GitHub Issues](https://github.com/Diorser/LiteMonitor/issues) 中反馈建议！
 
