@@ -160,19 +160,13 @@ namespace LiteMonitor
             var moreRoot = new ToolStripMenuItem(LanguageManager.T("Menu.More"));
             menu.Items.Add(moreRoot);
 
-            // 鼠标穿透
-            var clickThrough = new ToolStripMenuItem(LanguageManager.T("Menu.ClickThrough"))
-            {
-                Checked = cfg.ClickThrough,
-                CheckOnClick = true
-            };
-            clickThrough.CheckedChanged += (_, __) =>
-            {
-                cfg.ClickThrough = clickThrough.Checked;
-                cfg.Save();
-                form.SetClickThrough(clickThrough.Checked);
-            };
-            moreRoot.DropDownItems.Add(clickThrough);
+            // 主题编辑器
+            var themeEditor = new ToolStripMenuItem(LanguageManager.T("Menu.ThemeEditor"));
+            themeEditor.Click += (_, __) => new ThemeEditor.ThemeEditorForm().Show();
+            moreRoot.DropDownItems.Add(themeEditor);
+            moreRoot.DropDownItems.Add(new ToolStripSeparator());
+
+           
 
             // 自动隐藏
             var autoHide = new ToolStripMenuItem(LanguageManager.T("Menu.AutoHide"))
@@ -201,6 +195,20 @@ namespace LiteMonitor
                 cfg.Save();
             };
             moreRoot.DropDownItems.Add(clampItem);
+
+             // 鼠标穿透
+            var clickThrough = new ToolStripMenuItem(LanguageManager.T("Menu.ClickThrough"))
+            {
+                Checked = cfg.ClickThrough,
+                CheckOnClick = true
+            };
+            clickThrough.CheckedChanged += (_, __) =>
+            {
+                cfg.ClickThrough = clickThrough.Checked;
+                cfg.Save();
+                form.SetClickThrough(clickThrough.Checked);
+            };
+            moreRoot.DropDownItems.Add(clickThrough);
 
             moreRoot.DropDownItems.Add(new ToolStripSeparator());
 

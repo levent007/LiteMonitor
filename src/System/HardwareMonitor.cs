@@ -114,13 +114,13 @@ namespace LiteMonitor.src.System
             // ========== GPU ==========
             if (type is HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel)
             {
-                if (s.SensorType == SensorType.Temperature &&
-                    (name.Contains("core") || name.Contains("hotspot")))
-                    return "GPU.Temp";
-
-                if (s.SensorType == SensorType.Load &&
-                    (name.Contains("core") || name.Contains("gpu")))
+                  if (s.SensorType == SensorType.Load &&
+                    (name.Contains("core") || name.Contains("d3d 3d")))
                     return "GPU.Load";
+
+                if (s.SensorType == SensorType.Temperature &&
+                    (name.Contains("core") || name.Contains("hot spot")))
+                    return "GPU.Temp";
 
                 if (s.SensorType == SensorType.SmallData)
                 {

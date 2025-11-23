@@ -23,7 +23,7 @@ namespace LiteMonitor.src.Core
     /// </summary>
     public class LayoutConfig
     {
-        public int Width { get; set; } = 180;//不会被实际使用，运行时由 Settings.PanelWidth 覆盖
+        public int Width { get; set; } = 240;//不会被实际使用，运行时由 Settings.PanelWidth 覆盖
         public int RowHeight { get; set; } = 40;
         public int Padding { get; set; } = 12;
 
@@ -76,6 +76,7 @@ namespace LiteMonitor.src.Core
         public double Value { get; set; } = 10.5;
 
         public bool Bold { get; set; } = true;
+        public int ItemSize { get; internal set; }
     }
 
     /// <summary>
