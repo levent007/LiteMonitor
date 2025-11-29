@@ -40,6 +40,44 @@ namespace LiteMonitor
         public float TaskbarFontSize { get; set; } = 10f; // 任务栏字体大小
         public bool TaskbarFontBold { get; set; } = true; // 任务栏字体是否加粗
 
+        // [新增] 记录历史最高值，用于自适应颜色判断
+        // 给一些保守的默认值，防止初次运行分母为0
+        public float RecordedMaxCpuPower { get; set; } = 65.0f;  // 之前是 45W，建议改为 65W (主流台式机和游戏本的基准 TDP)
+        public float RecordedMaxCpuClock { get; set; } = 3800.0f; // 之前是 3000，建议改为 3800 (现代 CPU 睿频基本都能轻松过 3.8G)
+        public float RecordedMaxGpuPower { get; set; } = 80.0f; // 之前是 50W，建议改为 80W (甜品级显卡的起步功耗)
+        public float RecordedMaxGpuClock { get; set; } = 1500.0f; // 之前是 1000，建议改为 1500 (绝大多数独显都能达到)
+
+        // [新增] 记录上次保存时间
+        [System.Text.Json.Serialization.JsonIgnore] // 别把这个字段存进 json 文件里
+        private DateTime _lastAutoSave = DateTime.MinValue;
+        // [新增] 辅助方法：更新最大值并自动保存
+        public void UpdateMaxRecord(string key, float val)
+        {
+            bool changed = false;
+            // 只有当新值比旧记录大，且不是异常值（比如读取错误变成0或无穷大）时才更新
+            if (val <= 0 || float.IsNaN(val) || float.IsInfinity(val)) return;
+            // 2. ★★★ 新增：防止传感器抽风产生的离谱数值 ★★★
+            // CPU/GPU 频率通常不会超过 10GHz (10000MHz)
+            if (key.Contains("Clock") && val > 10000) return; 
+            // CPU/GPU 功耗通常不会超过 1000W (除非是工业级，但作为防错阈值够了)
+            if (key.Contains("Power") && val > 1000) return;
+
+            if (key == "CPU.Power" && val > RecordedMaxCpuPower) { RecordedMaxCpuPower = val; changed = true; }
+            else if (key == "CPU.Clock" && val > RecordedMaxCpuClock) { RecordedMaxCpuClock = val; changed = true; }
+            else if (key == "GPU.Power" && val > RecordedMaxGpuPower) { RecordedMaxGpuPower = val; changed = true; }
+            else if (key == "GPU.Clock" && val > RecordedMaxGpuClock) { RecordedMaxGpuClock = val; changed = true; }
+
+            if (changed)
+    {
+            // 策略：如果距离上次保存超过 30 秒，则立即保存
+            if ((DateTime.Now - _lastAutoSave).TotalSeconds > 30)
+            {
+                Save();
+                _lastAutoSave = DateTime.Now;
+            }
+        }
+        }
+
 
 
         // ====== 显示项（整组/子项开关）======
@@ -83,10 +121,14 @@ namespace LiteMonitor
     {
         public bool CpuLoad { get; set; } = true;
         public bool CpuTemp { get; set; } = true;
-
+        public bool CpuClock { get; set; } = false;
+        public bool CpuPower { get; set; } = false;
         public bool GpuLoad { get; set; } = true;
         public bool GpuTemp { get; set; } = true;
         public bool GpuVram { get; set; } = true;
+
+        public bool GpuClock { get; set; } = false;
+        public bool GpuPower { get; set; } = false;
 
         public bool MemLoad { get; set; } = true;
 

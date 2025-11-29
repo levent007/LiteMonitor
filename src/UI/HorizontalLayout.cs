@@ -29,6 +29,8 @@ namespace LiteMonitor
         // ====== 保留你原始最大宽度模板（横屏模式用） ======
         private const string MAX_VALUE_NORMAL = "100°C";
         private const string MAX_VALUE_IO = "999KB";
+        private const string MAX_VALUE_CLOCK = "99GHz"; 
+        private const string MAX_VALUE_POWER = "999W";
 
         public HorizontalLayout(Theme t, int initialWidth, LayoutMode mode)
         {
@@ -209,6 +211,10 @@ namespace LiteMonitor
         {
             string key = (isTop ? col.Top?.Key : col.Bottom?.Key)?.ToUpperInvariant() ??
                          (isTop ? col.Bottom?.Key : col.Top?.Key)?.ToUpperInvariant() ?? "";
+
+            // ★★★ 简单匹配，返回常量 ★★★
+            if (key.Contains("CLOCK")) return MAX_VALUE_CLOCK;
+            if (key.Contains("POWER")) return MAX_VALUE_POWER;
 
             bool isIO =
                 key.Contains("READ") || key.Contains("WRITE") ||

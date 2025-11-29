@@ -535,7 +535,9 @@ namespace LiteMonitor
         /// 窗体关闭时清理资源：释放 UIController 并隐藏托盘图标
         /// </summary>
         protected override void OnFormClosed(FormClosedEventArgs e)
-        {
+        {   
+            // 退出时必须强制存一次最新的配置
+            _cfg.Save();
             base.OnFormClosed(e);
             _ui?.Dispose();      // 释放 UI 资源
             _tray.Visible = false; // 隐藏托盘图标

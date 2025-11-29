@@ -249,6 +249,12 @@ namespace LiteMonitor
                 cpu.Add(new MetricItem { Key = "CPU.Load", Label = LanguageManager.T("Items.CPU.Load") });
             if (_cfg.Enabled.CpuTemp)
                 cpu.Add(new MetricItem { Key = "CPU.Temp", Label = LanguageManager.T("Items.CPU.Temp") });
+            // ★★★ 新增 ★★★
+            if (_cfg.Enabled.CpuClock)
+                 cpu.Add(new MetricItem { Key = "CPU.Clock", Label = LanguageManager.T("Items.CPU.Clock") });
+            if (_cfg.Enabled.CpuPower) 
+                cpu.Add(new MetricItem { Key = "CPU.Power", Label = LanguageManager.T("Items.CPU.Power") });
+            
             if (cpu.Count > 0) _groups.Add(new GroupLayoutInfo("CPU", cpu));
 
             // === GPU ===
@@ -259,6 +265,11 @@ namespace LiteMonitor
                 gpu.Add(new MetricItem { Key = "GPU.Temp", Label = LanguageManager.T("Items.GPU.Temp") });
             if (_cfg.Enabled.GpuVram)
                 gpu.Add(new MetricItem { Key = "GPU.VRAM", Label = LanguageManager.T("Items.GPU.VRAM") });
+            // ★★★ 新增 ★★★
+            if (_cfg.Enabled.GpuClock)
+                 gpu.Add(new MetricItem { Key = "GPU.Clock", Label = LanguageManager.T("Items.GPU.Clock") });
+            if (_cfg.Enabled.GpuPower)
+                 gpu.Add(new MetricItem { Key = "GPU.Power", Label = LanguageManager.T("Items.GPU.Power") });
             if (gpu.Count > 0) _groups.Add(new GroupLayoutInfo("GPU", gpu));
 
             // === MEM ===
@@ -282,6 +293,21 @@ namespace LiteMonitor
             if (_cfg.Enabled.NetDown)
                 net.Add(new MetricItem { Key = "NET.Down", Label = LanguageManager.T("Items.NET.Down") });
             if (net.Count > 0) _groups.Add(new GroupLayoutInfo("NET", net));
+
+            // ★★★ 在方法最后，添加这段初始化代码 ★★★
+            // 强制同步当前值，防止动画重置
+            foreach (var g in _groups)
+            {
+                foreach (var it in g.Items)
+                {
+                    // 1. 获取最新值
+                    float? val = _mon.Get(it.Key);
+                    it.Value = val;
+                    
+                    // 2. ★★★ 关键：直接把显示值设为当前值，跳过 0->Target 的动画 ★★★
+                    if (val.HasValue) it.DisplayValue = val.Value;
+                }
+            }
         }
 
         private void BuildHorizontalColumns()
@@ -307,6 +333,15 @@ namespace LiteMonitor
                     Bottom = _cfg.Enabled.CpuTemp ? new MetricItem { Key = "CPU.Temp" } : null
                 });
             }
+            // ★★★ 2. 新增：CPU Clock / Power (新列) ★★★
+            if (_cfg.Enabled.CpuClock || _cfg.Enabled.CpuPower)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.CpuClock ? new MetricItem { Key = "CPU.Clock" } : null,
+                    Bottom = _cfg.Enabled.CpuPower ? new MetricItem { Key = "CPU.Power" } : null
+                });
+            }
 
             // ==== GPU ====
             if (_cfg.Enabled.GpuLoad || _cfg.Enabled.GpuTemp)
@@ -317,6 +352,17 @@ namespace LiteMonitor
                     Bottom = _cfg.Enabled.GpuTemp ? new MetricItem { Key = "GPU.Temp" } : null
                 });
             }
+
+            // ★★★ 4. 新增：GPU Clock / Power (新列) ★★★
+            if (_cfg.Enabled.GpuClock || _cfg.Enabled.GpuPower)
+            {
+                cols.Add(new Column
+                {
+                    Top = _cfg.Enabled.GpuClock ? new MetricItem { Key = "GPU.Clock" } : null,
+                    Bottom = _cfg.Enabled.GpuPower ? new MetricItem { Key = "GPU.Power" } : null
+                });
+            }
+
 
             // ==== VRAM + MEM ====
             if (_cfg.Enabled.MemLoad || _cfg.Enabled.GpuVram)
@@ -348,18 +394,22 @@ namespace LiteMonitor
                 });
             }
 
-            // 初始化初始值（保持动画平滑）
+            // ★★★ 修改这里：初始化数值并“瞬移”到位 ★★★
             foreach (var c in cols)
             {
                 if (c.Top != null)
                 {
-                    c.Top.Value = _mon.Get(c.Top.Key);
-                    c.Top.TickSmooth(_cfg.AnimationSpeed);
+                    float? val = _mon.Get(c.Top.Key);
+                    c.Top.Value = val;
+                    // 关键：强制 DisplayValue = Value
+                    if (val.HasValue) c.Top.DisplayValue = val.Value; 
                 }
                 if (c.Bottom != null)
                 {
-                    c.Bottom.Value = _mon.Get(c.Bottom.Key);
-                    c.Bottom.TickSmooth(_cfg.AnimationSpeed);
+                    float? val = _mon.Get(c.Bottom.Key);
+                    c.Bottom.Value = val;
+                    // 关键：强制 DisplayValue = Value
+                    if (val.HasValue) c.Bottom.DisplayValue = val.Value;
                 }
             }
 

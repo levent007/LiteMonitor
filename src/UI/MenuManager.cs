@@ -210,10 +210,16 @@ namespace LiteMonitor
 
             AddToggle("Items.CPU.Load", () => cfg.Enabled.CpuLoad, v => cfg.Enabled.CpuLoad = v);
             AddToggle("Items.CPU.Temp", () => cfg.Enabled.CpuTemp, v => cfg.Enabled.CpuTemp = v);
+            // ★★★ 新增 CPU 频率/功耗 ★★★
+            AddToggle("Items.CPU.Clock", () => cfg.Enabled.CpuClock, v => cfg.Enabled.CpuClock = v);
+            AddToggle("Items.CPU.Power", () => cfg.Enabled.CpuPower, v => cfg.Enabled.CpuPower = v);
             AddToggle("Items.GPU.Load", () => cfg.Enabled.GpuLoad, v => cfg.Enabled.GpuLoad = v);
             AddToggle("Items.GPU.Temp", () => cfg.Enabled.GpuTemp, v => cfg.Enabled.GpuTemp = v);
             AddToggle("Items.GPU.VRAM", () => cfg.Enabled.GpuVram, v => cfg.Enabled.GpuVram = v);
             AddToggle("Items.MEM.Load", () => cfg.Enabled.MemLoad, v => cfg.Enabled.MemLoad = v);
+            // ★★★ 新增 GPU 频率/功耗 ★★★
+            AddToggle("Items.GPU.Clock", () => cfg.Enabled.GpuClock, v => cfg.Enabled.GpuClock = v);
+            AddToggle("Items.GPU.Power", () => cfg.Enabled.GpuPower, v => cfg.Enabled.GpuPower = v);
 
             AddToggle("Groups.DISK",
                 () => cfg.Enabled.DiskRead || cfg.Enabled.DiskWrite,
