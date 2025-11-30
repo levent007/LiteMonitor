@@ -222,7 +222,7 @@ namespace LiteMonitor
                 // ========================================================
         // 【7】获取当前版本号 (修复版)
         // ========================================================
-        private static string GetCurrentVersion()
+        public static string GetCurrentVersion()
         {
             // 优先读取 AssemblyInformationalVersion (对应 csproj 中的 <Version>)
             var version = Assembly.GetExecutingAssembly()

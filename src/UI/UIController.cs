@@ -225,7 +225,7 @@ namespace LiteMonitor
                     UpdateCol(col);
                 }
  
-
+                CheckTemperatureAlert();
                 _form.Invalidate();   // 主窗体刷新（竖屏 / 横屏）
             }
             finally
@@ -415,8 +415,58 @@ namespace LiteMonitor
 
             return cols;
         }
+        
+       // ★★★ 新增：检查高温报警 (UI 优化版) ★★★
+        private void CheckTemperatureAlert()
+        {
+            // 1. 基础检查
+            if (!_cfg.AlertTempEnabled) return;
+            if ((DateTime.Now - _cfg.LastAlertTime).TotalMinutes < 3) return;
 
+            int threshold = _cfg.AlertTempThreshold;
+            
+            // 2. 使用 List 收集报警信息，方便后续用换行符拼接
+            List<string> alertLines = new List<string>();
 
+            // 3. 准备标题和正文
+            // 标题：高温报警 (>80°C)
+            string alertTitle = LanguageManager.T("Menu.AlertTemp"); 
+            
+            // --- 检查 CPU ---
+            float? cpuTemp = _mon.Get("CPU.Temp");
+            if (cpuTemp.HasValue && cpuTemp.Value >= threshold)
+            {
+                // 简洁格式：CPU: 🔥85°C
+                alertLines.Add($"CPU {alertTitle}: 🔥{cpuTemp:F0}°C");
+            }
+
+            // --- 检查 GPU ---
+            float? gpuTemp = _mon.Get("GPU.Temp");
+            if (gpuTemp.HasValue && gpuTemp.Value >= threshold)
+            {
+                // 简洁格式：GPU: 🔥82°C
+                alertLines.Add($"GPU {alertTitle}: 🔥{gpuTemp:F0}°C");
+            }
+
+            // --- 触发报警 ---
+            if (alertLines.Count > 0)
+            {
+                
+                alertTitle+= $" (>{threshold}°C)";
+                // 正文：使用换行符连接多行
+                // 效果：
+                // CPU: 🔥85°C
+                // GPU: 🔥82°C
+                string bodyText = string.Join("\n", alertLines);
+
+                // 4. 调用弹窗 (注意参数顺序：Title, Text, Icon)
+                // 您之前的写法 ShowNotification(msg, msg...) 把正文当标题用了，会导致重复且难看
+                ((MainForm)_form).ShowNotification(alertTitle, bodyText, ToolTipIcon.Warning);
+                
+                // 更新防抖时间
+                _cfg.LastAlertTime = DateTime.Now;
+            }
+        }
 
         public void Dispose()
         {

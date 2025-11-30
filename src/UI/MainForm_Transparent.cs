@@ -522,14 +522,24 @@ namespace LiteMonitor
                 try { File.Delete(tokenPath); } catch { }
 
                 // 2. 方式 A：弹出气泡提示（推荐，不打扰）
-                // 如果你的托盘图标对象叫 _tray
-                _tray.ShowBalloonTip(3000, "LiteMonitor", "🎉 软件已成功更新到最新版本！", ToolTipIcon.Info);
+                string title = "⚡️LiteMonitor_v" + UpdateChecker.GetCurrentVersion();
+                string content = _cfg.Language == "zh-CN" ? "🎉 软件已成功更新到最新版本！" : "🎉 Software updated to latest version!";
+                ShowNotification(title, content, ToolTipIcon.Info); 
 
                 // 2. 方式 B：或者弹窗提示（如果你喜欢强提醒）
                 // MessageBox.Show("软件已成功更新到最新版本！", "更新成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
+        // 显示右小角通知气泡
+        public void ShowNotification(string title, string text, ToolTipIcon icon)
+        {
+            // 必须判断 Visible：如果用户隐藏了托盘图标，就不要（也无法）弹窗打扰他了
+            if (_tray != null && _tray.Visible)
+            {
+                _tray.ShowBalloonTip(5000, title, text, icon);
+            }
+        }
         
         /// <summary>
         /// 窗体关闭时清理资源：释放 UIController 并隐藏托盘图标

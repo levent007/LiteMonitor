@@ -79,66 +79,115 @@ namespace LiteMonitor.src.System
         }
 
         public void Dispose() => _computer.Close();
+
+        // =======================================================================
+        // [生命周期] 定时更新 (终极优化版)
+        // =======================================================================
         
-        // =======================================================================
-        // [生命周期] 定时更新 (修复版：加回网络和磁盘)
-        // =======================================================================
+        // 1. 定义时间标记
+        private DateTime _startTime = DateTime.Now;      // 启动时间
+        // [核心修复] 初始值为 Now，强迫程序启动时先等 3 秒再进行慢速全盘扫描，防止卡顿
+        private DateTime _lastSlowScan = DateTime.Now;   
+
         public void UpdateAll()
         {
             try
             {
-                // 1. 预判需要更新的硬件类型
+                // 1. 预判开关
                 bool needCpu = _cfg.Enabled.CpuLoad || _cfg.Enabled.CpuTemp || _cfg.Enabled.CpuClock || _cfg.Enabled.CpuPower;
                 bool needGpu = _cfg.Enabled.GpuLoad || _cfg.Enabled.GpuTemp || _cfg.Enabled.GpuVram || _cfg.Enabled.GpuClock || _cfg.Enabled.GpuPower;
                 bool needMem = _cfg.Enabled.MemLoad;
-                
-                // ★★★ 修复：加回网络和磁盘的开关判断 ★★★
                 bool needNet = _cfg.Enabled.NetUp || _cfg.Enabled.NetDown;
                 bool needDisk = _cfg.Enabled.DiskRead || _cfg.Enabled.DiskWrite;
 
+                // 2. 启动保护期 (前3秒)
+                bool isStartupPhase = (DateTime.Now - _startTime).TotalSeconds < 3;
+                
+                // 3. 慢速扫描信号 (每3秒一次)
+                bool isSlowScanTick = (DateTime.Now - _lastSlowScan).TotalSeconds > 3;
+
                 foreach (var hw in _computer.Hardware)
                 {
-                    // --- CPU ---
-                    if (hw.HardwareType == HardwareType.Cpu)
-                    {
-                        if (needCpu) hw.Update();
-                        continue;
-                    }
+                    // --- CPU / GPU / Memory (核心硬件：每秒实时更新) ---
+                    if (hw.HardwareType == HardwareType.Cpu) { if (needCpu) hw.Update(); continue; }
+                    if (hw.HardwareType == HardwareType.GpuNvidia || hw.HardwareType == HardwareType.GpuAmd || hw.HardwareType == HardwareType.GpuIntel) { if (needGpu) hw.Update(); continue; }
+                    if (hw.HardwareType == HardwareType.Memory) { if (needMem) hw.Update(); continue; }
 
-                    // --- GPU ---
-                    if (hw.HardwareType == HardwareType.GpuNvidia || 
-                        hw.HardwareType == HardwareType.GpuAmd || 
-                        hw.HardwareType == HardwareType.GpuIntel)
-                    {
-                        if (needGpu) hw.Update();
-                        continue;
-                    }
-
-                    // --- 内存 ---
-                    if (hw.HardwareType == HardwareType.Memory)
-                    {
-                        if (needMem) hw.Update();
-                        continue;
-                    }
-
-                    // --- ★★★ 修复：网络 (Network) ★★★ ---
+                    // --- 网络 (Network) ---
                     if (hw.HardwareType == HardwareType.Network)
                     {
-                        if (needNet) hw.Update();
+                        if (needNet) 
+                        {
+                            // 判断是否为“特权网卡” (满足以下任一条件即为特权)：
+                            // 1. 它是当前缓存正在读的 (Cached)
+                            // 2. 它是上次自动记忆的 (LastAuto)
+                            // 3. 它是用户手动指定的 (Preferred) -> 即使是虚拟网卡也能由用户强制开启
+                            bool isTarget = (_cachedNetHw != null && hw == _cachedNetHw) || 
+                                            (hw.Name == _cfg.LastAutoNetwork) ||
+                                            (hw.Name == _cfg.PreferredNetwork);
+
+                            // 逻辑分流：
+                            if (isTarget)
+                            {
+                                hw.Update(); // 特权：无视保护期，无视虚拟身份，每秒全速更新 (秒出数据)
+                            }
+                            else if (isStartupPhase || IsVirtualNetwork(hw.Name))
+                            {
+                                continue;    // 垃圾/闲置：启动期跳过，虚拟网卡跳过 (优化启动速度)
+                            }
+                            else if (isSlowScanTick)
+                            {
+                                hw.Update(); // 普通物理网卡：慢速巡检 (3秒一次)
+                            }
+                        }
                         continue;
                     }
 
-                    // --- ★★★ 修复：磁盘 (Storage) ★★★ ---
+                    // --- 磁盘 (Storage) ---
                     if (hw.HardwareType == HardwareType.Storage)
                     {
-                        if (needDisk) hw.Update();
+                        if (needDisk) 
+                        {
+                            // 磁盘同理：如果是上次记住的盘，直接更新，不等3秒
+                            bool isTarget = (_cachedDiskHw != null && hw == _cachedDiskHw) || 
+                                            (hw.Name == _cfg.LastAutoDisk) || 
+                                            (hw.Name == _cfg.PreferredDisk);
+
+                            if (isTarget)
+                            {
+                                hw.Update(); 
+                            }
+                            else if (isStartupPhase) // 其他盘受启动保护
+                            {
+                                continue;
+                            }
+                            else if (isSlowScanTick) // 慢速扫描
+                            {
+                                hw.Update();
+                            }
+                        }
                         continue;
                     }
                 }
                 
+                // 如果执行了慢速扫描，重置计时器
+                if (isSlowScanTick) _lastSlowScan = DateTime.Now;
+
                 OnValuesUpdated?.Invoke();
             }
             catch { }
+        }
+
+        // [新增] 辅助方法：复用 Logic.cs 中的关键字判断是否为虚拟网卡
+        private bool IsVirtualNetwork(string name)
+        {
+            // _virtualNicKW 定义在 Logic.cs 中，因为是 partial class 所以可以直接访问
+            foreach (var k in _virtualNicKW)
+            {
+                if (name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0) 
+                    return true;
+            }
+            return false;
         }
 
         // =======================================================================
@@ -162,18 +211,47 @@ namespace LiteMonitor.src.System
                     // 查找所有核心频率 (排除总线频率)
                     var clocks = hw.Sensors.Where(s => s.SensorType == SensorType.Clock && Has(s.Name, "core") && !Has(s.Name, "bus"));
                     
-                    foreach (var clock in clocks)
+                   foreach (var clock in clocks)
                     {
-                        // 查找对应的负载传感器 (名字通常一致，如 "CPU Core #1")
-                        var load = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load && s.Name == clock.Name);
+                        // ★★★ 修复：AMD 负载叫 "CPU Core #1"，频率叫 "Core #1"，不相等。
+                        // 改用 EndsWith 匹配，既支持 Intel (名字一样) 也支持 AMD (带前缀)
+                        var load = hw.Sensors.FirstOrDefault(s => 
+                            s.SensorType == SensorType.Load && 
+                            s.Name.EndsWith(clock.Name, StringComparison.OrdinalIgnoreCase)); // <--- 修改了这里
+                            
                         newCpuCache.Add(new CpuCoreSensors { Clock = clock, Load = load });
                     }
                 }
 
-                // --- 填充 GPU 缓存 (取第一个找到的显卡) ---
-                if (newGpu == null && (hw.HardwareType == HardwareType.GpuNvidia || hw.HardwareType == HardwareType.GpuAmd || hw.HardwareType == HardwareType.GpuIntel))
+                // --- 填充 GPU 缓存 (优化版：智能选择独显) ---
+                if (hw.HardwareType == HardwareType.GpuNvidia || 
+                    hw.HardwareType == HardwareType.GpuAmd || 
+                    hw.HardwareType == HardwareType.GpuIntel)
                 {
-                    newGpu = hw;
+                    // 如果还没找到显卡，直接用当前这个
+                    if (newGpu == null)
+                    {
+                        newGpu = hw;
+                    }
+                    else
+                    {
+                        // 如果已经找到了一个显卡，但它是“弱鸡”核显，而当前这个是“强力”独显，则替换！
+                        // 判断逻辑：
+                        // 1. 旧的是 generic (如 "AMD Radeon(TM) Graphics"), 新的是具体型号 (如 "Intel Arc B580")
+                        // 2. 旧的是 Intel 核显，新的是 Nvidia/AMD 独显
+                        // 3. 特别针对 B580: 如果新卡名字包含 "Arc"，绝对优先
+                        
+                        bool oldIsGeneric = IsGenericGpuName(newGpu.Name);
+                        bool newIsSpecific = !IsGenericGpuName(hw.Name);
+                        bool newIsArc = hw.Name.Contains("Arc", StringComparison.OrdinalIgnoreCase);
+                        bool oldIsArc = newGpu.Name.Contains("Arc", StringComparison.OrdinalIgnoreCase);
+
+                        // 优先选 Arc，其次选非通用名称的卡
+                        if ((!oldIsArc && newIsArc) || (oldIsGeneric && newIsSpecific))
+                        {
+                            newGpu = hw;
+                        }
+                    }
                 }
 
                 // --- 普通传感器映射 ---
@@ -204,8 +282,23 @@ namespace LiteMonitor.src.System
             }
         }
 
+        // [新增] 辅助方法：判断是否为通用核显名称
+        private bool IsGenericGpuName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return true;
+            // 常见核显名称: "AMD Radeon(TM) Graphics", "Intel(R) UHD Graphics"
+            if (name.Equals("AMD Radeon(TM) Graphics", StringComparison.OrdinalIgnoreCase)) return true;
+            if (name.Contains("UHD Graphics", StringComparison.OrdinalIgnoreCase)) return true;
+            if (name.Contains("Iris", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
         private static int GetHwPriority(IHardware hw)
         {
+            // 如果是 Intel Arc，提到最高优先级
+            if (hw.HardwareType == HardwareType.GpuIntel && 
+                hw.Name.Contains("Arc", StringComparison.OrdinalIgnoreCase))
+                return 0;
+
             return hw.HardwareType switch
             {
                 HardwareType.GpuNvidia => 0,

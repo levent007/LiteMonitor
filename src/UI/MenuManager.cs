@@ -213,14 +213,16 @@ namespace LiteMonitor
             // ★★★ 新增 CPU 频率/功耗 ★★★
             AddToggle("Items.CPU.Clock", () => cfg.Enabled.CpuClock, v => cfg.Enabled.CpuClock = v);
             AddToggle("Items.CPU.Power", () => cfg.Enabled.CpuPower, v => cfg.Enabled.CpuPower = v);
+            grpShow.DropDownItems.Add(new ToolStripSeparator());
             AddToggle("Items.GPU.Load", () => cfg.Enabled.GpuLoad, v => cfg.Enabled.GpuLoad = v);
             AddToggle("Items.GPU.Temp", () => cfg.Enabled.GpuTemp, v => cfg.Enabled.GpuTemp = v);
             AddToggle("Items.GPU.VRAM", () => cfg.Enabled.GpuVram, v => cfg.Enabled.GpuVram = v);
-            AddToggle("Items.MEM.Load", () => cfg.Enabled.MemLoad, v => cfg.Enabled.MemLoad = v);
             // ★★★ 新增 GPU 频率/功耗 ★★★
             AddToggle("Items.GPU.Clock", () => cfg.Enabled.GpuClock, v => cfg.Enabled.GpuClock = v);
             AddToggle("Items.GPU.Power", () => cfg.Enabled.GpuPower, v => cfg.Enabled.GpuPower = v);
-
+            grpShow.DropDownItems.Add(new ToolStripSeparator());
+            AddToggle("Items.MEM.Load", () => cfg.Enabled.MemLoad, v => cfg.Enabled.MemLoad = v);
+            grpShow.DropDownItems.Add(new ToolStripSeparator());
             AddToggle("Groups.DISK",
                 () => cfg.Enabled.DiskRead || cfg.Enabled.DiskWrite,
                 v => { cfg.Enabled.DiskRead = v; cfg.Enabled.DiskWrite = v; });
@@ -313,8 +315,23 @@ namespace LiteMonitor
             moreRoot.DropDownItems.Add(speedWindow);
             moreRoot.DropDownItems.Add(new ToolStripSeparator());
             
+            
+            // === 高温报警 ===
+            var alertItem = new ToolStripMenuItem(LanguageManager.T("Menu.AlertTemp") + " (>" + cfg.AlertTempThreshold + "°C)")
+            {
+                Checked = cfg.AlertTempEnabled,
+                CheckOnClick = true
+            };
 
+            alertItem.CheckedChanged += (_, __) =>
+            {
+                cfg.AlertTempEnabled = alertItem.Checked;
+                cfg.Save();
+            };
 
+            moreRoot.DropDownItems.Add(alertItem);
+            // 加个分隔线美观一点
+            moreRoot.DropDownItems.Add(new ToolStripSeparator());
 
 
             // 自动隐藏
@@ -395,7 +412,7 @@ namespace LiteMonitor
 
             // 界面宽度
             var widthRoot = new ToolStripMenuItem(LanguageManager.T("Menu.Width"));
-            int[] presetWidths = { 180, 200, 220, 240, 260, 280, 300, 360, 420 };
+            int[] presetWidths = { 180, 200, 220, 240, 260, 280, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900, 960, 1020, 1080, 1140, 1200 };
             int currentW = cfg.PanelWidth;
 
             foreach (var w in presetWidths)

@@ -28,7 +28,14 @@ namespace LiteMonitor
         public double UIScale { get; set; } = 1.0;  // 用户 UI 缩放，默认 1.00
 
         public string PreferredNetwork { get; set; } = "";  // 手动指定网卡，""=自动
+        // 自动识别到的网卡名称缓存 (避免每次启动都全盘扫描)
+        public string LastAutoNetwork { get; set; } = "";
+
         public string PreferredDisk { get; set; } = "";     // 手动指定磁盘，""=自动
+        // [新增] 自动识别到的磁盘名称缓存
+        public string LastAutoDisk { get; set; } = "";
+
+
 
         public bool ShowTaskbar { get; set; } = false; //开启任务栏显示
         public bool HideMainForm { get; set; } = false; //是否隐藏主窗口
@@ -46,6 +53,14 @@ namespace LiteMonitor
         public float RecordedMaxCpuClock { get; set; } = 3800.0f; // 之前是 3000，建议改为 3800 (现代 CPU 睿频基本都能轻松过 3.8G)
         public float RecordedMaxGpuPower { get; set; } = 80.0f; // 之前是 50W，建议改为 80W (甜品级显卡的起步功耗)
         public float RecordedMaxGpuClock { get; set; } = 1500.0f; // 之前是 1000，建议改为 1500 (绝大多数独显都能达到)
+
+        // [新增] 高温报警配置
+        public bool AlertTempEnabled { get; set; } = true; // 总开关
+        public int AlertTempThreshold { get; set; } = 80;   // 统一阈值 (默认80)
+
+        // [新增] 防抖记录 (不存入json)
+        [System.Text.Json.Serialization.JsonIgnore] 
+        public DateTime LastAlertTime { get; set; } = DateTime.MinValue;
 
         // [新增] 记录上次保存时间
         [System.Text.Json.Serialization.JsonIgnore] // 别把这个字段存进 json 文件里
