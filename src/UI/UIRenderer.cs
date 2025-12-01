@@ -9,23 +9,15 @@ namespace LiteMonitor
 {
     public static class UIRenderer
     {
-        private static readonly Dictionary<string, SolidBrush> _brushCache = new();
-
-        private static SolidBrush GetBrush(string color, Theme t)
-        {
-            if (!_brushCache.TryGetValue(color, out var br))
-            {
-                br = new SolidBrush(ThemeManager.ParseColor(color));
-                _brushCache[color] = br;
-            }
-            return br;
-        }
+        // ★★★ 优化：移除本地画刷缓存，改为调用 UIUtils ★★★
+        // private static readonly Dictionary<string, SolidBrush> _brushCache = new();
+        // private static SolidBrush GetBrush(string color, Theme t) { ... }
 
         // [替换] ClearCache 方法
         public static void ClearCache() 
         {
-            foreach(var b in _brushCache.Values) b.Dispose(); // 新增
-            _brushCache.Clear();
+            // 委托给 UIUtils 清理
+            UIUtils.ClearBrushCache();
         }
 
         public static void Render(Graphics g, List<GroupLayoutInfo> groups, Theme t)
@@ -37,7 +29,8 @@ namespace LiteMonitor
                 ? groups[^1].Bounds.Bottom + t.Layout.GroupBottom + t.Layout.Padding
                 : t.Layout.Padding * 2;
 
-            g.FillRectangle(GetBrush(t.Color.Background, t), new Rectangle(0, 0, t.Layout.Width, bgH));
+            // ★★★ 优化：使用 UIUtils.GetBrush ★★★
+            g.FillRectangle(UIUtils.GetBrush(t.Color.Background), new Rectangle(0, 0, t.Layout.Width, bgH));
 
             // 2. 绘制主标题
             DrawMainTitle(g, t);
@@ -63,8 +56,8 @@ namespace LiteMonitor
             string title = LanguageManager.T("Title");
             if (string.IsNullOrEmpty(title) || title == "Title") return;
 
-            // 简单估算高度用于绘制位置，实际 Rect 在 Layout 里也可以算，这里简单处理
-            int titleH = TextRenderer.MeasureText(title, t.FontTitle).Height;
+            // 直接使用字体高度，不需要测量
+            int titleH = t.FontTitle.Height;
             var titleRect = new Rectangle(t.Layout.Padding, t.Layout.Padding, t.Layout.Width - t.Layout.Padding * 2, titleH + 4);
 
             TextRenderer.DrawText(g, title, t.FontTitle, titleRect,
@@ -108,8 +101,8 @@ namespace LiteMonitor
                 ThemeManager.ParseColor(t.Color.TextPrimary),
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-            // Value (右对齐)
-            string valText = UIUtils.FormatValue(it.Key, it.DisplayValue);
+            // Value (右对齐)  传入 false 表示竖屏/普通模式
+            string valText = it.GetFormattedText(false);
             
             
             Color valColor = UIUtils.GetColor(it.Key, it.DisplayValue, t);
@@ -118,7 +111,7 @@ namespace LiteMonitor
                 valColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-            // Bar
+            // Bar - 注意：这里调用的是 UIUtils.DrawBar，它现在已经使用了优化的画刷逻辑
             UIUtils.DrawBar(g, it.BarRect, it.DisplayValue, it.Key, t);
         }
 
@@ -137,7 +130,8 @@ namespace LiteMonitor
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
 
             // Value (居中底部)
-            string valText = UIUtils.FormatValue(it.Key, it.Value); // 这里用 Raw Value 或者 DisplayValue 均可
+
+            string valText = it.GetFormattedText(t.Layout.Width < 240 * t.Layout.LayoutScale);
             // 窄屏处理
             if (t.Layout.Width < 240*t.Layout.LayoutScale) valText = UIUtils.FormatHorizontalValue(valText);
             Color valColor = UIUtils.GetColor(it.Key, it.Value ?? 0, t);

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using LiteMonitor.Common;
 
 namespace LiteMonitor
 {
@@ -17,9 +18,41 @@ namespace LiteMonitor
         public string Key { get; set; } = "";
         public string Label { get; set; } = "";
         
-        // 原始数值与显示数值
         public float? Value { get; set; } = null;
         public float DisplayValue { get; set; } = 0f;
+
+        // =============================
+        // ★★★ 新增：缓存字段 ★★★
+        // =============================
+        private float _cachedDisplayValue = -99999f; // 上一次格式化时的数值
+        private string _cachedNormalText = "";       // 缓存竖屏文本
+        private string _cachedHorizontalText = "";   // 缓存横屏/任务栏文本
+
+        /// <summary>
+        /// 获取格式化后的文本（带缓存机制）
+        /// </summary>
+        /// <param name="isHorizontal">是否为横屏/任务栏模式（需要极简格式）</param>
+        public string GetFormattedText(bool isHorizontal)
+        {
+            // 1. 检查数值变化是否足以触发重新格式化
+            // 阈值设为 0.05f 配合 FormatValue 的 "0.0" 格式，避免显示内容没变但重绘了字符串
+            if (Math.Abs(DisplayValue - _cachedDisplayValue) > 0.05f)
+            {
+                // 更新缓存基准值
+                _cachedDisplayValue = DisplayValue;
+
+                // 2. 重新生成基础字符串 (竖屏用)
+                // 这一步避免了每帧调用 float.ToString()
+                _cachedNormalText = UIUtils.FormatValue(Key, DisplayValue);
+
+                // 3. 标记横屏缓存失效 (惰性更新，或立即更新)
+                // 由于 FormatHorizontalValue 包含正则，开销大，我们只在基础文本变化后才重算
+                _cachedHorizontalText = UIUtils.FormatHorizontalValue(_cachedNormalText);
+            }
+
+            // 4. 根据模式返回对应的缓存
+            return isHorizontal ? _cachedHorizontalText : _cachedNormalText;
+        }
 
         // =============================
         // 布局数据 (由 UILayout 计算填充)

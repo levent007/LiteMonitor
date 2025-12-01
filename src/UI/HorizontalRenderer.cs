@@ -53,9 +53,10 @@ namespace LiteMonitor
             // 原版写法：优先用 Short.xx
             string label = LanguageManager.T($"Short.{it.Key}");
 
-            // === 使用 UIUtils 统一格式化 ===
-            string value = UIUtils.FormatValue(it.Key, it.DisplayValue);
-            value = UIUtils.FormatHorizontalValue(value);//去除网络和磁盘的"\s"，小数点智能显示
+            // === 使用 MetricItem 统一格式化 ===
+            //去除网络和磁盘的"\s"，小数点智能显示
+            // 传入 true 表示需要横屏极简格式（去空格、去单位前缀等）
+            string value = it.GetFormattedText(true);
 
             // === label（左对齐）===
             TextRenderer.DrawText(

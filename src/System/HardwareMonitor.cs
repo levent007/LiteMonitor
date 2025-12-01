@@ -31,7 +31,7 @@ namespace LiteMonitor.src.System
         private DateTime _startTime = DateTime.Now;      // 启动时间
         
         private DateTime _lastSlowScan = DateTime.Now;   //  初始值为 Now，强迫程序启动时先等 3 秒再进行慢速全盘扫描，防止卡顿
-
+        private DateTime _lastNativeMatchAttempt = DateTime.MinValue; // 上次尝试匹配原生网络适配器的时间
        // --- 流量统计专用字段 ---
         private DateTime _lastTrafficTime = DateTime.Now; // 积分时间戳
         private DateTime _lastTrafficSave = DateTime.Now; // 自动保存时间戳
@@ -40,6 +40,11 @@ namespace LiteMonitor.src.System
         private NetworkInterface? _nativeNetAdapter;
         private long _lastNativeUpload = 0;
         private long _lastNativeDownload = 0;
+
+        // 1. 新增缓存字段
+        private ISensor? _cachedUpSensor;
+        private ISensor? _cachedDownSensor;
+        private IHardware? _lastAccumulatedHw; // 记录上次是用哪个硬件缓存的
 
         // =======================================================================
         // [缓存] 高性能读取缓存 (避免 LINQ)
@@ -209,6 +214,9 @@ namespace LiteMonitor.src.System
         private void MatchNativeNetworkAdapter(string lhmName)
         {
             if (_nativeNetAdapter != null) return;
+            // 限制匹配频率，避免频繁调用 (10秒内仅匹配一次)
+            if ((DateTime.Now - _lastNativeMatchAttempt).TotalSeconds < 10) return;
+            _lastNativeMatchAttempt = DateTime.Now;
 
             try
             {
@@ -283,21 +291,25 @@ namespace LiteMonitor.src.System
             // -----------------------------------------------------
             // A. 先算一个 LHM 的估算值 (作为保底/校验)
             // -----------------------------------------------------
-            ISensor? upSensor = null;
-            ISensor? downSensor = null;
-            
-            // 复用 Logic.cs 里的关键字查找
-            foreach (var s in hw.Sensors)
+            // 如果切换了网卡，重置缓存
+            if (hw != _lastAccumulatedHw)
             {
-                if (s.SensorType != SensorType.Throughput) continue;
-                // _upKW 和 _downKW 定义在 Logic.cs 中，可以直接用
-                if (_upKW.Any(k => s.Name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)) upSensor ??= s;
-                if (_downKW.Any(k => s.Name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)) downSensor ??= s;
+                _cachedUpSensor = null;
+                _cachedDownSensor = null;
+                _lastAccumulatedHw = hw;
+                
+                // 只有第一次需要遍历查找
+                foreach (var s in hw.Sensors)
+                {
+                    if (s.SensorType != SensorType.Throughput) continue;
+                    if (_upKW.Any(k => Has(s.Name, k))) _cachedUpSensor ??= s;
+                    if (_downKW.Any(k => Has(s.Name, k))) _cachedDownSensor ??= s;
+                }
             }
 
-            // LHM 估算值 (Bytes)
-            long lhmUpDelta = (long)((upSensor?.Value ?? 0) * seconds);
-            long lhmDownDelta = (long)((downSensor?.Value ?? 0) * seconds);
+            // ★★★ 直接使用缓存对象，跳过循环和字符串匹配 ★★★
+            long lhmUpDelta = (long)((_cachedUpSensor?.Value ?? 0) * seconds);
+            long lhmDownDelta = (long)((_cachedDownSensor?.Value ?? 0) * seconds);
 
             // -----------------------------------------------------
             // B. 尝试获取 原生精准值

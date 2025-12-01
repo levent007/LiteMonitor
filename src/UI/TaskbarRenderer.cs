@@ -56,9 +56,7 @@ namespace LiteMonitor
         private static void DrawItem(Graphics g, MetricItem item, Rectangle rc, bool light)
         {
             string label = LanguageManager.T($"Short.{item.Key}");
-            string value = UIUtils.FormatHorizontalValue(
-                               UIUtils.FormatValue(item.Key, item.DisplayValue)
-                           );
+            string value = item.GetFormattedText(true);
 
             // 直接使用缓存的字体，不再 new Font
             Font font = _cachedFont!;

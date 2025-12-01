@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic; // 引用字典
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -12,6 +13,37 @@ namespace LiteMonitor.Common
     /// </summary>
     public static class UIUtils
     {
+        // ============================================================
+        // ★★★ 优化：画刷缓存机制下沉到此处 ★★★
+        // ============================================================
+        private static readonly Dictionary<string, SolidBrush> _brushCache = new();
+
+        /// <summary>
+        /// 获取画刷的公共方法 (自动缓存)
+        /// </summary>
+        public static SolidBrush GetBrush(string color)
+        {
+            // 如果颜色字符串为空，返回透明或默认
+            if (string.IsNullOrEmpty(color)) return (SolidBrush)Brushes.Transparent;
+
+            if (!_brushCache.TryGetValue(color, out var br))
+            {
+                // 缓存未命中：创建并存入
+                br = new SolidBrush(ThemeManager.ParseColor(color));
+                _brushCache[color] = br;
+            }
+            return br;
+        }
+
+        /// <summary>
+        /// 清理缓存的方法 (供外部切换主题时调用)
+        /// </summary>
+        public static void ClearBrushCache()
+        {
+            foreach (var b in _brushCache.Values) b.Dispose();
+            _brushCache.Clear();
+        }
+
         // ============================================================
         // 核心：通用数值格式化 (对外入口)
         // ============================================================
@@ -102,8 +134,6 @@ namespace LiteMonitor.Common
                 : num.ToString("0.0") + unit;
         }
 
-
-
         // ============================================================
         // ③ 统一颜色选择
         // ============================================================
@@ -131,7 +161,7 @@ namespace LiteMonitor.Common
             // 1. Adaptive (频率/功耗要转化成使用率数值)
             if (k.Contains("CLOCK") || k.Contains("POWER"))
             {
-                value = GetAdaptivePercentage(key, value);
+                value = GetAdaptivePercentage(key, value) * 100;
             }
 
             // 2. 使用 GetThresholds 获取阈值
@@ -214,61 +244,56 @@ namespace LiteMonitor.Common
 
         // ============================================================
         // ⑤ 完整进度条 (恢复最低 5% 版本)
+        // ★★★ 优化：复用 GetBrush 方法 ★★★
         // ============================================================
         public static void DrawBar(Graphics g, Rectangle bar, double value, string key, Theme t)
         {
-            // 1. 绘制背景槽
+            // 1. 绘制背景槽 - 使用缓存画刷
             using (var bgPath = RoundRect(bar, bar.Height / 2))
             {
-                g.FillPath(new SolidBrush(ThemeManager.ParseColor(t.Color.BarBackground)), bgPath);
+                g.FillPath(GetBrush(t.Color.BarBackground), bgPath);
             }
 
             // =========================================================
-            // 核心计算逻辑
+            // ★★★ 优化核心：一次计算，两处使用 ★★★
             // =========================================================
+            string k = key.ToUpperInvariant();
             double percent;
-            string colorCode;
 
-            if (key.Contains("Clock") || key.Contains("Power"))
+            // A. 统一计算进度百分比 (0.0 ~ 1.0)
+            // ---------------------------------------------------------
+            if (k.Contains("CLOCK") || k.Contains("POWER"))
             {
-                // --- 频率/功耗 (Value / Max) ---
-                // 从 Settings 读取历史最大值作为分母
-                var cfg = Settings.Load();
-                float max = 1.0f;
-                if (key == "CPU.Clock") max = cfg.RecordedMaxCpuClock;
-                else if (key == "CPU.Power") max = cfg.RecordedMaxCpuPower;
-                else if (key == "GPU.Clock") max = cfg.RecordedMaxGpuClock;
-                else if (key == "GPU.Power") max = cfg.RecordedMaxGpuPower;
-
-                if (max < 1) max = 1;
-                percent = value / max;
-
-                // 颜色策略
-                if (percent >= 0.9) colorCode = t.Color.BarHigh;
-                else if (percent >= 0.6) colorCode = t.Color.BarMid;
-                else colorCode = t.Color.BarLow;
+                // 复用 GetAdaptivePercentage (内部封装了读取 Settings 和 Max 的逻辑)
+                // 避免了在 DrawBar 里重写一遍 Settings 读取代码
+                percent = GetAdaptivePercentage(key, value);
             }
             else
             {
-                // --- 默认处理 (Value / 100) ---
+                // 普通数据 (Load/Temp/Mem) 默认为 0-100，直接除以 100 归一化
                 percent = value / 100.0;
-
-                // 颜色策略 (原有阈值)
-                var (warn, crit) = GetThresholds(key);
-                if (value >= crit) colorCode = t.Color.BarHigh;
-                else if (value >= warn) colorCode = t.Color.BarMid;
-                else colorCode = t.Color.BarLow;
             }
 
-            // ★★★ 恢复您的逻辑：限制范围在 5% ~ 100% 之间 ★★★
-            // 即使 value 是 0，也显示 5% 的长度，保持视觉统一
+            // B. 确定颜色 (就地判断，避免调用 GetColorResult 导致重复计算)
+            // ---------------------------------------------------------
+            // 逻辑：将 0~1 的 percent 还原为 0~100 的数值，与配置文件的阈值 (如 60, 85) 对比
+            // 这样既省去了计算，又保证了颜色策略与 GetColorResult 保持完全一致
+            var (warn, crit) = GetThresholds(key);
+            double valForCheck = percent * 100.0;
+
+            string colorCode;
+            if (valForCheck >= crit) colorCode = t.Color.BarHigh;
+            else if (valForCheck >= warn) colorCode = t.Color.BarMid;
+            else colorCode = t.Color.BarLow;
+
+            // C. 绘制前景条
+            // ---------------------------------------------------------
+            // 限制范围 5% ~ 100% (视觉优化)
             percent = Math.Max(0.05, Math.Min(1.0, percent));
 
-            // 2. 绘制前景条
             int w = (int)(bar.Width * percent);
-            
             // 确保至少有 2px 宽度，避免圆角绘制异常
-            if (w < 2) w = 2; 
+            if (w < 2) w = 2;
 
             if (w > 0)
             {
@@ -279,7 +304,8 @@ namespace LiteMonitor.Common
 
                 using (var fgPath = RoundRect(filled, filled.Height / 2))
                 {
-                    g.FillPath(new SolidBrush(ThemeManager.ParseColor(colorCode)), fgPath);
+                    // 优化：使用缓存的前景画刷
+                    g.FillPath(GetBrush(colorCode), fgPath);
                 }
             }
         }
