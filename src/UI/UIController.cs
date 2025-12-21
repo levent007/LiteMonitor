@@ -331,72 +331,66 @@ namespace LiteMonitor
             _hxColsTaskbar = BuildColumnsCore();
         }
 
-        // 提取公共创建逻辑（完全复用你原来的列构建逻辑）
+        // 修改后的 BuildColumnsCore 方法
         private List<Column> BuildColumnsCore()
         {
             var cols = new List<Column>();
 
-            // ==== CPU ====
-            if (_cfg.Enabled.CpuLoad || _cfg.Enabled.CpuTemp)
-            {
-                cols.Add(new Column
-                {
-                    Top = _cfg.Enabled.CpuLoad ? new MetricItem { Key = "CPU.Load" } : null,
-                    Bottom = _cfg.Enabled.CpuTemp ? new MetricItem { Key = "CPU.Temp" } : null
-                });
-            }
-            // ★★★ 2. 新增：CPU Clock / Power (新列) ★★★
-            if (_cfg.Enabled.CpuClock || _cfg.Enabled.CpuPower)
-            {
-                cols.Add(new Column
-                {
-                    Top = _cfg.Enabled.CpuClock ? new MetricItem { Key = "CPU.Clock" } : null,
-                    Bottom = _cfg.Enabled.CpuPower ? new MetricItem { Key = "CPU.Power" } : null
-                });
-            }
+            // =========================================================
+            // 第一步：构建“流式布局池” (自动填补空位)
+            // 包含：CPU, GPU, MEM
+            // 逻辑：将所有开启的此类项目按顺序加入列表，然后两两配对
+            // =========================================================
+            var flowItems = new List<MetricItem>();
 
-            // ==== GPU ====
-            if (_cfg.Enabled.GpuLoad || _cfg.Enabled.GpuTemp)
-            {
-                cols.Add(new Column
-                {
-                    Top = _cfg.Enabled.GpuLoad ? new MetricItem { Key = "GPU.Load" } : null,
-                    Bottom = _cfg.Enabled.GpuTemp ? new MetricItem { Key = "GPU.Temp" } : null
-                });
-            }
+            // 1.1 收集 CPU 项目
+            if (_cfg.Enabled.CpuLoad)  flowItems.Add(new MetricItem { Key = "CPU.Load" });
+            if (_cfg.Enabled.CpuTemp)  flowItems.Add(new MetricItem { Key = "CPU.Temp" });
+            if (_cfg.Enabled.CpuClock) flowItems.Add(new MetricItem { Key = "CPU.Clock" });
+            if (_cfg.Enabled.CpuPower) flowItems.Add(new MetricItem { Key = "CPU.Power" });
 
-            // ★★★ 4. 新增：GPU Clock / Power (新列) ★★★
-            if (_cfg.Enabled.GpuClock || _cfg.Enabled.GpuPower)
-            {
-                cols.Add(new Column
-                {
-                    Top = _cfg.Enabled.GpuClock ? new MetricItem { Key = "GPU.Clock" } : null,
-                    Bottom = _cfg.Enabled.GpuPower ? new MetricItem { Key = "GPU.Power" } : null
-                });
-            }
+            // 1.2 收集 GPU 项目
+            if (_cfg.Enabled.GpuLoad)  flowItems.Add(new MetricItem { Key = "GPU.Load" });
+            if (_cfg.Enabled.GpuTemp)  flowItems.Add(new MetricItem { Key = "GPU.Temp" });
+            if (_cfg.Enabled.GpuVram)  flowItems.Add(new MetricItem { Key = "GPU.VRAM" });
+            if (_cfg.Enabled.GpuClock) flowItems.Add(new MetricItem { Key = "GPU.Clock" });
+            if (_cfg.Enabled.GpuPower) flowItems.Add(new MetricItem { Key = "GPU.Power" });
 
+            // 1.3 收集 MEM 项目
+            if (_cfg.Enabled.MemLoad)  flowItems.Add(new MetricItem { Key = "MEM.Load" });
 
-            // ==== VRAM + MEM ====
-            if (_cfg.Enabled.MemLoad || _cfg.Enabled.GpuVram)
+            // 1.4 开始填坑：两两一组生成 Column
+            for (int i = 0; i < flowItems.Count; i += 2)
             {
-                cols.Add(new Column
+                var col = new Column();
+                col.Top = flowItems[i]; // 第一个放上面
+
+                // 如果还有下一个，放下面；否则下面留空 (null)
+                if (i + 1 < flowItems.Count)
                 {
-                    Top = _cfg.Enabled.GpuVram ? new MetricItem { Key = "GPU.VRAM" } : null,
-                    Bottom = _cfg.Enabled.MemLoad ? new MetricItem { Key = "MEM.Load" } : null
-                });
+                    col.Bottom = flowItems[i + 1];
+                }
+
+                cols.Add(col);
             }
 
-            // ==== DISK ====
+            // =========================================================
+            // 第二步：处理“固定组合” (磁盘, 网络, 流量)
+            // 逻辑：这些项目保持独立列，不参与上面的混排，也不让上面的项目插进来
+            // =========================================================
+
+            // --- DISK (读/写) ---
             if (_cfg.Enabled.DiskRead || _cfg.Enabled.DiskWrite)
             {
                 cols.Add(new Column
                 {
+                    // 即使只开了一个，另一个位置也留空 (null)，确保这列只属于磁盘
                     Top = _cfg.Enabled.DiskRead ? new MetricItem { Key = "DISK.Read" } : null,
                     Bottom = _cfg.Enabled.DiskWrite ? new MetricItem { Key = "DISK.Write" } : null
                 });
             }
 
-            // ==== NET ====
+            // --- NET (上传/下载) ---
             if (_cfg.Enabled.NetUp || _cfg.Enabled.NetDown)
             {
                 cols.Add(new Column
@@ -406,7 +400,7 @@ namespace LiteMonitor
                 });
             }
 
-            // ★★★ [新增] DATA Day Up / Down (今日流量) ★★★
+            // --- DATA (今日流量) ---
             if (_cfg.Enabled.TrafficDay)
             {
                 cols.Add(new Column
@@ -416,26 +410,33 @@ namespace LiteMonitor
                 });
             }
 
-            // ★★★ 修改这里：初始化数值并“瞬移”到位 ★★★
+            // =========================================================
+            // 第三步：初始化数值 (防止切换时显示 0 然后跳变)
+            // =========================================================
             foreach (var c in cols)
             {
-                if (c.Top != null)
-                {
-                    float? val = _mon.Get(c.Top.Key);
-                    c.Top.Value = val;
-                    // 关键：强制 DisplayValue = Value
-                    if (val.HasValue) c.Top.DisplayValue = val.Value; 
-                }
-                if (c.Bottom != null)
-                {
-                    float? val = _mon.Get(c.Bottom.Key);
-                    c.Bottom.Value = val;
-                    // 关键：强制 DisplayValue = Value
-                    if (val.HasValue) c.Bottom.DisplayValue = val.Value;
-                }
+                InitMetricValue(c.Top);
+                InitMetricValue(c.Bottom);
             }
 
             return cols;
+        }
+
+        // 辅助方法：初始化单个指标的值
+        private void InitMetricValue(MetricItem? item)
+        {
+            if (item == null) return;
+            
+            // 从 HardwareMonitor 获取当前值
+            float? val = _mon.Get(item.Key);
+            item.Value = val;
+            
+            // 关键：强制 DisplayValue = Value，跳过动画平滑
+            // 这样新添加的项目会直接显示数值，而不是从 0 慢慢涨上来
+            if (val.HasValue) 
+            {
+                item.DisplayValue = val.Value;
+            }
         }
         
        // ★★★ 新增：检查高温报警 (UI 优化版) ★★★
