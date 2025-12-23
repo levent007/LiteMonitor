@@ -44,8 +44,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container.SuspendLayout();
             _container.Controls.Clear();
 
-            CreateSystemCard();   
+           
             CreateBehaviorCard(); 
+            CreateSystemCard();   
             CreateSourceCard();   
 
             _container.ResumeLayout();
@@ -79,10 +80,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             _chkAutoStart = new LiteCheck(Config.AutoStart, "Enable");
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.AutoStart"), _chkAutoStart));
 
-            // 3. TopMost (★ 传入 "Enable")
-            _chkTopMost = new LiteCheck(Config.TopMost, "Enable");
-            group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.TopMost"), _chkTopMost));
-
             // 4. Refresh Rate
             _cmbRefresh = new LiteComboBox();
             int[] rates = { 100, 200, 500, 1000, 2000, 3000 };
@@ -98,14 +95,18 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup("Behavior");
 
             // ★ 全部传入 "Enable"
+            // 3. TopMost (★ 传入 "Enable")
+            _chkTopMost = new LiteCheck(Config.TopMost, "Enable");
+            group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.TopMost"), _chkTopMost));
+            
+             _chkClamp = new LiteCheck(Config.ClampToScreen, "Enable");
+            group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.ClampToScreen"), _chkClamp));
+
             _chkAutoHide = new LiteCheck(Config.AutoHide, "Enable");
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.AutoHide"), _chkAutoHide));
 
             _chkClickThrough = new LiteCheck(Config.ClickThrough, "Enable");
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.ClickThrough"), _chkClickThrough));
-
-            _chkClamp = new LiteCheck(Config.ClampToScreen, "Enable");
-            group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.ClampToScreen"), _chkClamp));
 
             _chkHideTray = new LiteCheck(Config.HideTrayIcon, "Enable");
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.HideTrayIcon"), _chkHideTray));

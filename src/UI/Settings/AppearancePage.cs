@@ -37,7 +37,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container.Controls.Clear();
 
             CreateThemeCard();
-            CreateDisplayCard();
             CreateTaskbarCard(); 
 
             _container.ResumeLayout();
@@ -46,7 +45,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void CreateThemeCard()
         {
-            var group = new LiteSettingsGroup("Style & Layout");
+            var group = new LiteSettingsGroup("主界面设置");
 
             _cmbTheme = new LiteComboBox();
             foreach (var t in ThemeManager.GetAvailableThemes()) _cmbTheme.Items.Add(t);
@@ -65,14 +64,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             SetComboVal(_cmbWidth, Config.PanelWidth + " px");
             group.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.Width"), _cmbWidth));
 
-            AddGroupToPage(group);
-        }
-
-        private void CreateDisplayCard()
-        {
-            var group = new LiteSettingsGroup("Display & Scale");
-
-            _cmbScale = new LiteComboBox();
+              _cmbScale = new LiteComboBox();
             double[] scales = { 0.5, 0.75, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0 };
             foreach (var s in scales) _cmbScale.Items.Add((s * 100) + "%");
             SetComboVal(_cmbScale, (Config.UIScale * 100) + "%");
@@ -85,6 +77,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             AddGroupToPage(group);
         }
+
 
         private void CreateTaskbarCard()
         {
