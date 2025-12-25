@@ -121,10 +121,6 @@
   <data name="AppIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\resources\assets\app.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="MoreIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\resources\assets\moreIcon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-    <comment>很多功能图标</comment>
-  </data>
   <data name="NetworkIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\resources\assets\networkTest.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
     <comment>网络图标</comment>
