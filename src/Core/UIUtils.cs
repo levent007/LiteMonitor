@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic; // 引用字典
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Windows.Forms;
-using LiteMonitor.src.Core;
+﻿using System.Drawing.Drawing2D;
+
 using System.Text.RegularExpressions;
 
-namespace LiteMonitor.Common
+namespace LiteMonitor.src.Core
 {
     /// <summary>
     /// LiteMonitor 的公共 UI 工具库（所有渲染器可用）
@@ -339,5 +335,23 @@ namespace LiteMonitor.Common
             double pct = val / max;
             return pct > 1.0 ? 1.0 : pct;
         }
+
+        public static int ParseInt(string s) 
+        { 
+            if (string.IsNullOrWhiteSpace(s)) return 0;
+            string clean = new string(s.Where(c => char.IsDigit(c) || c == '-').ToArray());
+            return int.TryParse(clean, out int v) ? v : 0; 
+        }
+
+        public static double ParseDouble(string s) 
+        { 
+            if (string.IsNullOrWhiteSpace(s)) return 0;
+            // 允许小数点
+            string clean = new string(s.Where(c => char.IsDigit(c) || c == '.' || c == '-').ToArray());
+            return double.TryParse(clean, out double v) ? v : 0; 
+        }
+        
+        // 浮点数转显示字符串（统一格式）
+        public static string ToStr(double v, string format = "F1") => v.ToString(format);
     }
 }

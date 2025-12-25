@@ -1,6 +1,4 @@
-using System;
-using System.Drawing;
-using LiteMonitor.Common;
+using LiteMonitor.src.Core;
 
 namespace LiteMonitor
 {

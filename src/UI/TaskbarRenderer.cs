@@ -1,10 +1,5 @@
-using LiteMonitor.Common;
 using LiteMonitor.src.Core;
-using Microsoft.Win32;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Text;
-using System.Windows.Forms;
 
 namespace LiteMonitor
 {

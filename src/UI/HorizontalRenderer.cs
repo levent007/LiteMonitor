@@ -1,8 +1,4 @@
-using System.Collections.Generic;
-using System.Drawing;
-using System.Windows.Forms;
 using LiteMonitor.src.Core;
-using LiteMonitor.Common;
 
 namespace LiteMonitor
 {

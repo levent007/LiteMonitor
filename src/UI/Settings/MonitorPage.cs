@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using LiteMonitor.src.Core;
-using LiteMonitor.src.UI.Controls; // 引用上面新建的控件
+using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor.src.UI.SettingsPage
 {
@@ -14,12 +15,12 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         public MonitorPage()
         {
-            // 复用基类和LiteUI颜色
             this.BackColor = UIColors.MainBg;
-            
-            // 初始化表头 (这里代码比较简单，直接写或简单封装皆可)
-            InitHeader(); 
-            
+            this.Dock = DockStyle.Fill;
+            this.Padding = new Padding(0);
+
+            InitHeader();
+
             _container = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -27,73 +28,70 @@ namespace LiteMonitor.src.UI.SettingsPage
                 Padding = new Padding(20, 5, 20, 20)
             };
             this.Controls.Add(_container);
-            // 记得 BringToFront 头部
-            this.Controls.SetChildIndex(_container, 0); 
+            this.Controls.SetChildIndex(_container, 0);
         }
 
         private void InitHeader()
         {
             var header = new Panel { Dock = DockStyle.Top, Height = 35, BackColor = UIColors.MainBg };
             header.Padding = new Padding(20, 0, 20, 0);
-            
-            // 使用 MonitorLayout 常量确保对齐
-            AddHeadLabel(header, LanguageManager.T("Menu.MonitorItem"), MonitorLayout.X_ID);
-            AddHeadLabel(header, LanguageManager.T("Menu.name"), MonitorLayout.X_NAME);
-            AddHeadLabel(header, LanguageManager.T("Menu.short"), MonitorLayout.X_SHORT);
-            AddHeadLabel(header, LanguageManager.T("Menu.showHide"), MonitorLayout.X_PANEL); 
-            AddHeadLabel(header, LanguageManager.T("Menu.sort"), MonitorLayout.X_SORT);
-            
+
+            void AddLabel(string text, int x)
+            {
+                header.Controls.Add(new Label {
+                    Text = text, Location = new Point(x + 20, 10), AutoSize = true,
+                    ForeColor = UIColors.TextSub, Font = UIFonts.Bold(8F)
+                });
+            }
+
+            AddLabel(LanguageManager.T("Menu.MonitorItem"), MonitorLayout.X_ID);
+            AddLabel(LanguageManager.T("Menu.name"), MonitorLayout.X_NAME);
+            AddLabel(LanguageManager.T("Menu.short"), MonitorLayout.X_SHORT);
+            AddLabel(LanguageManager.T("Menu.showHide"), MonitorLayout.X_PANEL);
+            AddLabel(LanguageManager.T("Menu.sort"), MonitorLayout.X_SORT);
+
             this.Controls.Add(header);
             header.BringToFront();
-        }
-        
-        private void AddHeadLabel(Panel p, string t, int x)
-        {
-             p.Controls.Add(new Label {
-                Text = t, Location = new Point(x + 20, 10), AutoSize = true,
-                ForeColor = UIColors.TextSub, Font = UIFonts.Bold(8F)
-            });
         }
 
         public override void OnShow()
         {
-            if (Config == null || _isLoaded) return; 
+            base.OnShow();
+            if (Config == null || _isLoaded) return;
 
             _container.SuspendLayout();
             _container.Controls.Clear();
 
+            // 1. 数据准备 (SortIndex 越小越靠前)
             var allItems = Config.MonitorItems.OrderBy(x => x.SortIndex).ToList();
             var groups = allItems.GroupBy(x => x.Key.Split('.')[0]);
 
-            // 倒序添加以配合 Dock = Top 的堆叠顺序
+            // 2. 倒序添加 (因为 Dock=Top，后添加的会显示在上方)
             foreach (var g in groups.Reverse())
             {
-                CreateGroupBlock(g.Key, g.ToList());
+                var block = CreateGroupBlock(g.Key, g.ToList());
+                _container.Controls.Add(block);
             }
+
             _container.ResumeLayout();
             _isLoaded = true;
         }
 
-        private void CreateGroupBlock(string groupKey, List<MonitorItemConfig> items)
+        private GroupBlock CreateGroupBlock(string groupKey, List<MonitorItemConfig> items)
         {
-            // 1. 外层 Wrapper (用于整体移动)
-            var wrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
+            string alias = Config.GroupAliases.ContainsKey(groupKey) ? Config.GroupAliases[groupKey] : "";
             
-            // 2. 卡片背景 (复用 LiteCard)
-            var card = new LiteCard { Dock = DockStyle.Top };
-
-            // 3. 内容容器 (行容器)
+            var header = new MonitorGroupHeader(groupKey, alias);
             var rowsPanel = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = Color.White };
 
-            // 4. 分组头 (使用新封装的控件)
-            string alias = Config.GroupAliases.ContainsKey(groupKey) ? Config.GroupAliases[groupKey] : "";
-            var header = new MonitorGroupHeader(groupKey, alias);
-            
-            // 绑定组排序
-            header.MoveUp += (s, e) => MoveControl(wrapper, -1);
-            header.MoveDown += (s, e) => MoveControl(wrapper, 1);
+            var block = new GroupBlock(header, rowsPanel);
 
-            // 5. 循环添加行 (倒序)
+            // 移动逻辑保持不变 (用户反馈现在是准确的)
+            // MoveUp (-1) 在 Dock=Top 逻辑下通常意味着增加索引 (往顶部跑)
+            header.MoveUp += (s, e) => MoveControl(block, -1);
+            header.MoveDown += (s, e) => MoveControl(block, 1);
+
+            // 行也是倒序添加
             for (int i = items.Count - 1; i >= 0; i--)
             {
                 var row = new MonitorItemRow(items[i]);
@@ -102,22 +100,22 @@ namespace LiteMonitor.src.UI.SettingsPage
                 rowsPanel.Controls.Add(row);
             }
 
-            // 组装
-            card.Controls.Add(rowsPanel);
-            card.Controls.Add(header); // Header 最后加，在最上面
-            wrapper.Controls.Add(card);
-            _container.Controls.Add(wrapper);
+            return block;
         }
 
-        // 通用移动逻辑
         private void MoveControl(Control c, int dir)
         {
             var p = c.Parent;
+            if (p == null) return;
+            
             int idx = p.Controls.GetChildIndex(c);
-            int newIdx = idx - dir;
-            // 简单边界检查
-            if (newIdx >= 0 && newIdx < p.Controls.Count) 
+            // 保持之前修正过的逻辑
+            int newIdx = idx - dir; 
+
+            if (newIdx >= 0 && newIdx < p.Controls.Count)
+            {
                 p.Controls.SetChildIndex(c, newIdx);
+            }
         }
 
         public override void Save()
@@ -127,51 +125,66 @@ namespace LiteMonitor.src.UI.SettingsPage
             var flatList = new List<MonitorItemConfig>();
             int sortIndex = 0;
 
-            // 遍历逻辑：从界面读取数据
-            // 注意：因为 Dock=Top，Controls[0] 是视觉上的最底部（或者最顶部，取决于你怎么理解）
-            // 这里建议：直接递归找 MonitorItemRow
+            // ★★★ 核心修复：倒序遍历 ★★★
+            // WinForms Controls 集合中，Index 0 是最底部，Index Count-1 是最顶部。
+            // 我们需要按照视觉顺序（从上到下）保存，所以必须从 Controls 的末尾开始遍历。
             
-            // 简单的做法是把 wrapper 收集到一个列表里再反转遍历
-            var wrappers = new List<Control>();
-            foreach(Control c in _container.Controls) wrappers.Add(c);
-            wrappers.Reverse(); // 变回视觉上的从上到下
+            // 1. 获取所有分组 (从视觉顶部到底部)
+            var blocks = _container.Controls.Cast<Control>().Reverse().ToList();
 
-            foreach (var wrapper in wrappers)
+            foreach (Control c in blocks)
             {
-                var card = wrapper.Controls[0] as LiteCard;
-                if (card == null) continue;
-                
-                // 获取 Header 保存别名
-                var header = card.Controls.OfType<MonitorGroupHeader>().FirstOrDefault();
-                if (header != null)
+                if (c is GroupBlock block)
                 {
-                    string alias = header.InputAlias.Inner.Text.Trim();
-                    if (!string.IsNullOrEmpty(alias)) Config.GroupAliases[header.GroupKey] = alias;
-                    else Config.GroupAliases.Remove(header.GroupKey);
-                }
+                    // 保存别名
+                    string alias = block.Header.InputAlias.Inner.Text.Trim();
+                    if (!string.IsNullOrEmpty(alias)) 
+                        Config.GroupAliases[block.Header.GroupKey] = alias;
+                    else 
+                        Config.GroupAliases.Remove(block.Header.GroupKey);
 
-                // 获取行容器
-                var rowsPanel = card.Controls.OfType<Panel>().FirstOrDefault(p => !(p is MonitorGroupHeader));
-                if (rowsPanel != null)
-                {
-                    // 同理，行也是 Dock Top，需要反转
-                    var rows = rowsPanel.Controls.Cast<MonitorItemRow>().Reverse().ToList();
-                    
-                    foreach (var row in rows)
+                    // 2. 获取组内所有行 (同样需要倒序遍历，从视觉顶部到底部)
+                    var rows = block.RowsPanel.Controls.Cast<Control>().Reverse().ToList();
+
+                    foreach (Control rc in rows)
                     {
-                        // ★ 调用 Row 自己的保存逻辑
-                        row.SyncToConfig();
-                        row.Config.SortIndex = sortIndex++;
-                        flatList.Add(row.Config);
+                        if (rc is MonitorItemRow row)
+                        {
+                            row.SyncToConfig();
+                            row.Config.SortIndex = sortIndex++;
+                            flatList.Add(row.Config);
+                        }
                     }
                 }
             }
 
             Config.MonitorItems = flatList;
-            
-            // 应用更改
             Config.SyncToLanguage();
             AppActions.ApplyMonitorLayout(UI, MainForm);
+        }
+
+        // 内部封装类保持不变
+        private class GroupBlock : Panel
+        {
+            public MonitorGroupHeader Header { get; private set; }
+            public Panel RowsPanel { get; private set; }
+
+            public GroupBlock(MonitorGroupHeader header, Panel rowsPanel)
+            {
+                this.Header = header;
+                this.RowsPanel = rowsPanel;
+
+                this.Dock = DockStyle.Top;
+                this.AutoSize = true;
+                this.Padding = new Padding(0, 0, 0, 20);
+
+                var card = new LiteCard { Dock = DockStyle.Top };
+                // 同样注意添加顺序：先加内容(下)，再加表头(上)
+                card.Controls.Add(rowsPanel);
+                card.Controls.Add(header); 
+
+                this.Controls.Add(card);
+            }
         }
     }
 }

@@ -11,16 +11,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private Panel _container;
         private bool _isLoaded = false;
 
-        private class ThresholdInputs { public LiteUnderlineInput Warn; public LiteUnderlineInput Crit; }
-
-        private ThresholdInputs _inCpuLoad;
-        private ThresholdInputs _inCpuTemp;
-        private ThresholdInputs _inDisk;
-        private ThresholdInputs _inNetUp;
-        private ThresholdInputs _inNetDown;
-        private ThresholdInputs _inDataUp;
-        private ThresholdInputs _inDataDown;
-        // ★★★ 新增：弹窗告警设置 ★★★
+        // 不需要保留成员变量引用了，因为全是自动绑定
         private LiteCheck _chkAlertTemp;
         private LiteUnderlineInput _inAlertTemp;
 
@@ -35,59 +26,91 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         public override void OnShow()
         {
+            base.OnShow(); // ★ 必须调用
             if (Config == null || _isLoaded) return;
+
             _container.SuspendLayout();
             _container.Controls.Clear();
 
-             // ★★★ 新增：高温报通知分组 (插入在这里比较合适) ★★★
+            // === 1. 高温告警分组 ===
             var grpAlert = new LiteSettingsGroup(LanguageManager.T("Menu.AlertTemp"));
             
-            // 高温报警开关
-            _chkAlertTemp = new LiteCheck(Config.AlertTempEnabled, LanguageManager.T("Menu.Enable"));
+            // 开关
+            _chkAlertTemp = new LiteCheck(false, LanguageManager.T("Menu.Enable"));
+            BindCheck(_chkAlertTemp, 
+                () => Config.AlertTempEnabled, 
+                v => Config.AlertTempEnabled = v);
             grpAlert.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.AlertTemp"), _chkAlertTemp));
 
-            // 高温报警阈值
-            _inAlertTemp = new LiteUnderlineInput(Config.AlertTempThreshold.ToString("F0"), "°C", "", 80, UIColors.TextCrit, HorizontalAlignment.Center);
+            // 阈值 (int)
+            _inAlertTemp = new LiteUnderlineInput("0", "°C", "", 80, UIColors.TextCrit, HorizontalAlignment.Center);
+            BindInt(_inAlertTemp, 
+                () => Config.AlertTempThreshold, 
+                v => Config.AlertTempThreshold = v);
             grpAlert.AddItem(new LiteSettingsItem(LanguageManager.T("Menu.AlertThreshold"), _inAlertTemp));
 
             AddGroupToPage(grpAlert);
 
-            // 1. 硬件负载
+            // === 2. 硬件负载 ===
             var grpHardware = new LiteSettingsGroup(LanguageManager.T("Menu.GeneralHardware"));
             
-            // 文案放在前面了
-            _inCpuLoad = AddThresholdRow(grpHardware, LanguageManager.T("Menu.HardwareLoad"), Config.Thresholds.Load, "%", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
-            _inCpuTemp = AddThresholdRow(grpHardware, LanguageManager.T("Menu.HardwareTemp"), Config.Thresholds.Temp, "°C", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+            AddThresholdRow(grpHardware, LanguageManager.T("Menu.HardwareLoad"), 
+                () => Config.Thresholds.Load.Warn, v => Config.Thresholds.Load.Warn = v,
+                () => Config.Thresholds.Load.Crit, v => Config.Thresholds.Load.Crit = v,
+                "%", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+
+            AddThresholdRow(grpHardware, LanguageManager.T("Menu.HardwareTemp"), 
+                () => Config.Thresholds.Temp.Warn, v => Config.Thresholds.Temp.Warn = v,
+                () => Config.Thresholds.Temp.Crit, v => Config.Thresholds.Temp.Crit = v,
+                "°C", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
 
             AddGroupToPage(grpHardware);
 
-            // 2. 网络与磁盘
+            // === 3. 网络与磁盘 ===
             var grpNet = new LiteSettingsGroup(LanguageManager.T("Menu.NetworkDiskSpeed"));
             
-            _inDisk = AddThresholdRow(grpNet, LanguageManager.T("Menu.DiskIOSpeed"), Config.Thresholds.DiskIOMB, "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
-            _inNetUp = AddThresholdRow(grpNet, LanguageManager.T("Menu.UploadSpeed"), Config.Thresholds.NetUpMB, "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
-            _inNetDown = AddThresholdRow(grpNet, LanguageManager.T("Menu.DownloadSpeed"), Config.Thresholds.NetDownMB, "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+            AddThresholdRow(grpNet, LanguageManager.T("Menu.DiskIOSpeed"), 
+                () => Config.Thresholds.DiskIOMB.Warn, v => Config.Thresholds.DiskIOMB.Warn = v,
+                () => Config.Thresholds.DiskIOMB.Crit, v => Config.Thresholds.DiskIOMB.Crit = v,
+                "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+
+            AddThresholdRow(grpNet, LanguageManager.T("Menu.UploadSpeed"), 
+                () => Config.Thresholds.NetUpMB.Warn, v => Config.Thresholds.NetUpMB.Warn = v,
+                () => Config.Thresholds.NetUpMB.Crit, v => Config.Thresholds.NetUpMB.Crit = v,
+                "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+
+            AddThresholdRow(grpNet, LanguageManager.T("Menu.DownloadSpeed"), 
+                () => Config.Thresholds.NetDownMB.Warn, v => Config.Thresholds.NetDownMB.Warn = v,
+                () => Config.Thresholds.NetDownMB.Crit, v => Config.Thresholds.NetDownMB.Crit = v,
+                "MB/s", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
 
             AddGroupToPage(grpNet);
 
-            // 3. 流量限额
+            // === 4. 流量限额 ===
             var grpData = new LiteSettingsGroup(LanguageManager.T("Menu.DailyTraffic"));
 
-            _inDataUp = AddThresholdRow(grpData, LanguageManager.T("Items.DATA.DayUp"), Config.Thresholds.DataUpMB, "MB", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
-            _inDataDown = AddThresholdRow(grpData, LanguageManager.T("Items.DATA.DayDown"), Config.Thresholds.DataDownMB, "MB", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+            AddThresholdRow(grpData, LanguageManager.T("Items.DATA.DayUp"), 
+                () => Config.Thresholds.DataUpMB.Warn, v => Config.Thresholds.DataUpMB.Warn = v,
+                () => Config.Thresholds.DataUpMB.Crit, v => Config.Thresholds.DataUpMB.Crit = v,
+                "MB", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
+
+            AddThresholdRow(grpData, LanguageManager.T("Items.DATA.DayDown"), 
+                () => Config.Thresholds.DataDownMB.Warn, v => Config.Thresholds.DataDownMB.Warn = v,
+                () => Config.Thresholds.DataDownMB.Crit, v => Config.Thresholds.DataDownMB.Crit = v,
+                "MB", LanguageManager.T("Menu.ValueWarnColor"), LanguageManager.T("Menu.ValueCritColor"));
 
             AddGroupToPage(grpData);
-
-           
 
             _container.ResumeLayout();
             _isLoaded = true;
         }
 
-        private ThresholdInputs AddThresholdRow(
+        // 改造后的 Helper：直接接收 Getter/Setter 委托
+        private void AddThresholdRow(
             LiteSettingsGroup group, 
             string title, 
-            ValueRange val, 
+            Func<double> getWarn, Action<double> setWarn,
+            Func<double> getCrit, Action<double> setCrit,
             string unit,
             string labelWarn, 
             string labelCrit)
@@ -108,16 +131,17 @@ namespace LiteMonitor.src.UI.SettingsPage
                 BackColor = Color.Transparent, Padding = new Padding(0)
             };
 
-            // 参数顺序已更新：text, unit, labelPrefix, width, color
-            // 宽度设为 140 比较紧凑，如果文案长（如中文“严重警告”）可以设大一点
-            var inputWarn = new LiteUnderlineInput(val.Warn.ToString(), unit, labelWarn, 140, UIColors.TextWarn, HorizontalAlignment.Center);
-
+            // 创建控件
+            var inputWarn = new LiteUnderlineInput("0", unit, labelWarn, 140, UIColors.TextWarn, HorizontalAlignment.Center);
             var arrow = new Label { 
                 Text = "➜", AutoSize = true, ForeColor = Color.LightGray, 
                 Font = new Font("Microsoft YaHei UI", 9F), Margin = new Padding(5, 4, 5, 0) 
             };
+            var inputCrit = new LiteUnderlineInput("0", unit, labelCrit, 140, UIColors.TextCrit, HorizontalAlignment.Center);
 
-            var inputCrit = new LiteUnderlineInput(val.Crit.ToString(), unit, labelCrit, 140, UIColors.TextCrit, HorizontalAlignment.Center);
+            // ★ 核心：立即绑定 (Config.Thresholds 都是 double)
+            BindDouble(inputWarn, getWarn, setWarn);
+            BindDouble(inputCrit, getCrit, setCrit);
 
             rightBox.Controls.Add(inputWarn);
             rightBox.Controls.Add(arrow);
@@ -125,7 +149,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             panel.Controls.Add(rightBox);
 
-            // 布局
+            // 布局事件
             panel.Layout += (s, e) => {
                 lblTitle.Location = new Point(0, (panel.Height - lblTitle.Height) / 2);
                 rightBox.Location = new Point(panel.Width - rightBox.Width, (panel.Height - rightBox.Height) / 2);
@@ -138,7 +162,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             };
 
             group.AddFullItem(panel);
-            return new ThresholdInputs { Warn = inputWarn, Crit = inputCrit };
         }
 
         private void AddGroupToPage(LiteSettingsGroup group)
@@ -148,41 +171,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container.Controls.Add(wrapper);
             _container.Controls.SetChildIndex(wrapper, 0);
         }
-
-        // ★★★ 修复点：将解析方法提取为类成员，避免局部函数的作用域问题 ★★★
-        private double Parse(LiteUnderlineInput input) 
-        {
-            // 简单防空保护
-            if (input == null || input.Inner == null) return 0;
-            return double.TryParse(input.Inner.Text, out double v) ? v : 0;
-        }
-
-        private int ParseInt(LiteUnderlineInput input)
-        {
-            if (input == null || input.Inner == null) return 0;
-            return int.TryParse(input.Inner.Text, out int v) ? v : 0;
-        }
-        public override void Save()
-        {
-            if (!_isLoaded) return;
-
-            Config.Thresholds.Load.Warn = Parse(_inCpuLoad.Warn);
-            Config.Thresholds.Load.Crit = Parse(_inCpuLoad.Crit);
-            Config.Thresholds.Temp.Warn = Parse(_inCpuTemp.Warn);
-            Config.Thresholds.Temp.Crit = Parse(_inCpuTemp.Crit);
-            Config.Thresholds.DiskIOMB.Warn = Parse(_inDisk.Warn);
-            Config.Thresholds.DiskIOMB.Crit = Parse(_inDisk.Crit);
-            Config.Thresholds.NetUpMB.Warn = Parse(_inNetUp.Warn);
-            Config.Thresholds.NetUpMB.Crit = Parse(_inNetUp.Crit);
-            Config.Thresholds.NetDownMB.Warn = Parse(_inNetDown.Warn);
-            Config.Thresholds.NetDownMB.Crit = Parse(_inNetDown.Crit);
-            Config.Thresholds.DataUpMB.Warn = Parse(_inDataUp.Warn);
-            Config.Thresholds.DataUpMB.Crit = Parse(_inDataUp.Crit);
-            Config.Thresholds.DataDownMB.Warn = Parse(_inDataDown.Warn);
-            Config.Thresholds.DataDownMB.Crit = Parse(_inDataDown.Crit);
-            // ★★★ 保存告警设置 ★★★
-            Config.AlertTempEnabled = _chkAlertTemp.Checked;
-            Config.AlertTempThreshold = ParseInt(_inAlertTemp);
-        }
+        
+        // ★ Save() 方法已被基类接管，无需重写
     }
 }
