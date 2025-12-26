@@ -93,11 +93,15 @@ namespace LiteMonitor.src.SystemServices
             };
 
             // 异步初始化，防止卡顿 UI
-            Task.Run(() =>
+            Task.Run(async () => 
             {
                 try
                 {
                     _computer.Open();
+
+                    // 所有的检测、下载、重载逻辑都在 Driver.cs 里处理完了
+                    await SmartCheckDriver(); 
+
                     BuildSensorMap();
                 }
                 catch (Exception ex)
