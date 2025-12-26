@@ -1,6 +1,6 @@
 {
-  "version": "1.2.0",
-  "changelog": "⭐️重要版本更新：\n1.新增设置面板-功能管理更方便\n2.核心库更新至最新版-支持最新硬件\n3.主界面与任务栏可分开设置排序、显示、自定义名称等。\n4.任务栏支持更换颜色、鼠标穿透、单行显示等\n5.内存/显存支持显示已用容量\n6.支持鼠标双击打开任务管理器等功能\n7.大量功能优化、BUG修复等",
-  "releaseDate": "2025-12-26",
+  "version": "1.2.1",
+  "changelog": "Bug fix / 修复一些已知问题",
+  "releaseDate": "2025-12-27",
   "downloadUrl": "https://github.com/Diorser/LiteMonitor/releases"
 }
