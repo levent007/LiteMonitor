@@ -88,10 +88,12 @@ namespace LiteMonitor.src.UI.SettingsPage
                 // 如果 LanguageManager.T 找不到 key，它会返回 key 原文。
                 string title = LanguageManager.T(key) + suffix; 
                 
+                // 同时在 Getter/Setter 中强制转为 int，实现“不显示也不保存小数”的效果
                 var input = AddNumberDouble(group, "RAW_TITLE_HACK", unit, 
-                    () => get(), 
-                    v => set((float)v)
+                    () => (int)get(),        // Getter: float -> int (截断小数，界面显示 "65")
+                    v => set((float)(int)v)  // Setter: double -> int -> float (输入 65.5 -> 存为 65.0)
                 );
+                
                 
                 // 修正 Label 的文字 (因为工厂里把它当 Key 去翻译了)
                 // 实际上我们可以在工厂里加个重载，但为了不改太多，这里手动修正一下 Parent 的 Label
