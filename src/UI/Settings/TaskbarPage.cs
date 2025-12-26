@@ -51,6 +51,13 @@ namespace LiteMonitor.src.UI.SettingsPage
             // 2. 鼠标穿透
             AddBool(group, "Menu.ClickThrough", () => Config.TaskbarClickThrough, v => Config.TaskbarClickThrough = v);
 
+            // ★★★ 新增：单行模式开关 ★★★
+            // 提示：你需要在语言文件(zh.json)中添加 "Menu.TaskbarSingleLine": "单行显示"
+            AddBool(group, "Menu.TaskbarSingleLine", 
+                () => Config.TaskbarSingleLine, 
+                v => Config.TaskbarSingleLine = v
+            );
+
             // 3. 样式 (Bold/Regular)
             AddComboIndex(group, "Menu.TaskbarStyle",
                 new[] { LanguageManager.T("Menu.TaskbarStyleBold"), LanguageManager.T("Menu.TaskbarStyleRegular") },
@@ -60,7 +67,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                     else { Config.TaskbarFontSize = 10f; Config.TaskbarFontBold = true; }
                 }
             );
-
+            
             // ★★★ 新增：双击动作设置 ★★★
             string[] actions = { 
                 LanguageManager.T("Menu.ActionToggleVisible"),    // 0: 显示/隐藏主界面

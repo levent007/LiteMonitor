@@ -46,6 +46,8 @@ namespace LiteMonitor
         
         // 任务栏行为配置
         public bool TaskbarClickThrough { get; set; } = false;     // 鼠标穿透
+        // ★★★ 新增：任务栏单行模式 ★★★
+        public bool TaskbarSingleLine { get; set; } = false;
 
         // ====== 任务栏：高级自定义外观 ======
         public bool TaskbarCustomStyle { get; set; } = false; // 总开关

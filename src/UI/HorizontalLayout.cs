@@ -64,13 +64,16 @@ namespace LiteMonitor
             int pad = _padding;
             int padV = _padding / 2;
 
+            // ★ 定义单行模式变量
+            bool isTaskbarSingle = (_mode == LayoutMode.Taskbar && _settings.TaskbarSingleLine);
+
             if (_mode == LayoutMode.Taskbar)
             {
                 // 任务栏上下没有额外 padding
                 padV = 0;
 
-                // === 任务栏行高 = taskbarHeight / 2（你选择的方案 A）===
-                _rowH = taskbarHeight / 2;
+                // ★ 如果是单行模式，行高=全高；否则=半高
+                _rowH = isTaskbarSingle ? taskbarHeight : taskbarHeight / 2;
             }
 
             // ==== 宽度初始值 ====
@@ -164,47 +167,48 @@ namespace LiteMonitor
 
             foreach (var col in cols)
             {
-                col.Bounds = new Rectangle(x, padV, col.ColumnWidth, _rowH * 2);
+                // ★ 整个列的高度
+                int colHeight = isTaskbarSingle ? _rowH : _rowH * 2;
+                col.Bounds = new Rectangle(x, padV, col.ColumnWidth, colHeight);
 
                 if (_mode == LayoutMode.Taskbar)
                 {
-                    // ====== 任务栏模式：计算上下两行 Bounds ======
-                    col.BoundsTop = new Rectangle(
-                        col.Bounds.X,
-                        col.Bounds.Y + 2,     // === 保留你选择的 A ±2 像素偏移 ===
-                        col.Bounds.Width,
-                        _rowH - 2
-                    );
+                    if (isTaskbarSingle)
+                    {
+                        // ★★★ 单行模式：Top 占满全高，Bottom 为空 ★★★
+                        col.BoundsTop = col.Bounds; 
+                        col.BoundsBottom = Rectangle.Empty;
+                    }
+                    else
+                    {
+                        // ★★★ 原有双行模式：上下各一半 ★★★
+                        col.BoundsTop = new Rectangle(
+                            col.Bounds.X,
+                            col.Bounds.Y + 2,
+                            col.Bounds.Width,
+                            _rowH - 2
+                        );
 
-                    col.BoundsBottom = new Rectangle(
-                        col.Bounds.X,
-                        col.Bounds.Y + _rowH - 2,
-                        col.Bounds.Width,
-                        _rowH
-                    );
+                        col.BoundsBottom = new Rectangle(
+                            col.Bounds.X,
+                            col.Bounds.Y + _rowH - 2,
+                            col.Bounds.Width,
+                            _rowH
+                        );
+                    }
                 }
                 else
                 {
-                    // 横屏模式也生成上下行 Bounds
-                    col.BoundsTop = new Rectangle(
-                        col.Bounds.X,
-                        col.Bounds.Y,
-                        col.Bounds.Width,
-                        _rowH
-                    );
-
-                    col.BoundsBottom = new Rectangle(
-                        col.Bounds.X,
-                        col.Bounds.Y + _rowH,
-                        col.Bounds.Width,
-                        _rowH
-                    );
+                    // 横屏模式 (保持不变)
+                    col.BoundsTop = new Rectangle(col.Bounds.X, col.Bounds.Y, col.Bounds.Width, _rowH);
+                    col.BoundsBottom = new Rectangle(col.Bounds.X, col.Bounds.Y + _rowH, col.Bounds.Width, _rowH);
                 }
 
                 x += col.ColumnWidth + gap;
             }
 
-            return padV * 2 + _rowH * 2;
+            // ★ 返回总高度
+            return padV * 2 + (isTaskbarSingle ? _rowH : _rowH * 2);
         }
 
         private string GetMaxValueSample(Column col, bool isTop)

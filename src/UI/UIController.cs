@@ -255,16 +255,19 @@ namespace LiteMonitor
                 .ToList();
 
             // 2. 两两配对 (流式布局)
-            // 直接按照列表顺序，每两个塞进一列
-            for (int i = 0; i < items.Count; i += 2)
+            // ★★★ 修改：单行模式下步长为1，否则为2 ★★★
+            bool singleLine = forTaskbar && _cfg.TaskbarSingleLine;
+            int step = singleLine ? 1 : 2;
+
+            for (int i = 0; i < items.Count; i += step)
             {
                 var col = new Column();
                 
-                // 上面的项
+                // 上面的项 (始终存在)
                 col.Top = CreateMetric(items[i]);
 
-                // 下面的项 (如果有)
-                if (i + 1 < items.Count)
+                // 下面的项 (单行模式下强制为 null)
+                if (!singleLine && i + 1 < items.Count)
                 {
                     col.Bottom = CreateMetric(items[i+1]);
                 }

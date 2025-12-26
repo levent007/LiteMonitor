@@ -90,6 +90,7 @@
     "__Comment_Page2__": "--- 2. 任务栏设置 (TaskbarPage) ---",
     "TaskbarSettings": "任务栏设置",
     "TaskbarShow": "任务栏显示",
+    "TaskbarSingleLine": "单行显示",
     "TaskbarStyle": "任务栏样式",
     "TaskbarStyleBold": "大字模式",
     "TaskbarStyleRegular": "小字模式",
