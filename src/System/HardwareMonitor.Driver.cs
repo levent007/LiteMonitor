@@ -14,17 +14,17 @@ namespace LiteMonitor.src.SystemServices
         private readonly string[] _driverUrls = new[]
         {
             // 镜像 1: 官方 GitHub (国内可能慢或不通)
-            "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/raw/master/LibreHardwareMonitor/Resources/PawnIO_setup.exe",
+            "https://gitee.com/Diorser/LiteMonitor/raw/master/resources/assets/PawnIO_setup.exe",
             
             // 镜像 2: (建议替换为您的 Gitee 发行版附件直链)
             "https://litemonitor.cn/update/PawnIO_setup.exe", 
             
             // 镜像 3: (建议替换为备用网盘或 CDN)
-            "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/raw/master/LibreHardwareMonitor/Resources/PawnIO_setup.exe" 
+            "https://github.com/Diorser/LiteMonitor/raw/master/resources/assets/PawnIO_setup.exe" 
         };
 
         // 手动下载页面 (当自动安装失败时打开此网页让用户自己下)
-        private const string ManualDownloadPage = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases";
+        private const string ManualDownloadPage = "https://gitee.com/Diorser/LiteMonitor/raw/master/resources/assets/PawnIO_setup.exe";
 
         /// <summary>
         /// [独立逻辑] 智能检查并修复驱动环境
@@ -127,7 +127,7 @@ namespace LiteMonitor.src.SystemServices
             // 如果所有镜像都挂了 -> 弹窗提示手动下载
             if (!downloadSuccess)
             {
-                ShowManualFailDialog("无法连接到驱动下载服务器 (所有镜像均尝试失败)。");
+                ShowManualFailDialog("无法连接到PawnIO驱动下载服务器 (所有镜像均尝试失败)。");
                 return false;
             }
 
@@ -163,7 +163,7 @@ namespace LiteMonitor.src.SystemServices
             }
 
             // 如果执行到这里，说明安装失败了 -> 弹窗提示
-            ShowManualFailDialog("驱动下载成功，但自动安装失败 (可能是权限不足或被杀毒软件拦截)。");
+            ShowManualFailDialog("PawnIO驱动下载成功，但自动安装失败 (可能是权限不足或被杀毒软件拦截)。");
             return false;
         }
 
@@ -175,7 +175,7 @@ namespace LiteMonitor.src.SystemServices
             // 必须切换到 UI 线程显示，否则可能在后台被吞掉
             // 如果是在 Form 的构造函数 Task.Run 里调用的，MessageBox 是安全的
             var result = MessageBox.Show(
-                $"LiteMonitor 无法下载安装 CPU 温度监控所需的驱动组件。\n\n原因：{reason}\n\n点击“确定”打开下载页面，请手动下载并安装 PawnIO 驱动。",
+                $"PawnIO驱动缺失！\n\nLiteMonitor 无法下载安装 CPU 监控所需的PawnIO驱动。\n\n原因：{reason}\n\n点击“确定”打开下载页面，请手动下载并安装 PawnIO 驱动。",
                 "驱动安装失败",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning);
