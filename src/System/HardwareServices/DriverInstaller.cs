@@ -1,17 +1,22 @@
-
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
-using System.Threading; // 必须添加
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using LibreHardwareMonitor.Hardware;
+using LiteMonitor.src.Core;
 using Debug = System.Diagnostics.Debug;
 
 namespace LiteMonitor.src.SystemServices
 {
-    public sealed partial class HardwareMonitor
+    public class DriverInstaller
     {
+        private readonly Settings _cfg;
+        private readonly Computer _computer;
+        private readonly Action _onReloadRequired; // 回调：通知主程序重载
+
         // 建议把最快的 Gitee/国内源放在第一个
         private readonly string[] _driverUrls = new[]
         {
@@ -22,7 +27,14 @@ namespace LiteMonitor.src.SystemServices
 
         private const string ManualDownloadPage = "https://gitee.com/Diorser/LiteMonitor/raw/master/resources/assets/PawnIO_setup.exe";
 
-        private async Task SmartCheckDriver()
+        public DriverInstaller(Settings cfg, Computer computer, Action onReloadRequired)
+        {
+            _cfg = cfg;
+            _computer = computer;
+            _onReloadRequired = onReloadRequired;
+        }
+
+        public async Task SmartCheckDriver()
         {
             if (!_cfg.IsAnyEnabled("CPU")) return;
 
@@ -42,41 +54,14 @@ namespace LiteMonitor.src.SystemServices
                     {
                         // ★★★ 核心修改：安装成功后，热重载并重新映射 ★★★
                         Debug.WriteLine("[Driver] Installed. Reloading...");
-                        ReloadComputerSafe();
+                        _onReloadRequired?.Invoke();
                     }
                 }
             }
         }
 
-        // 安全重载，不影响 UpdateAll 循环
-        private void ReloadComputerSafe()
-        {
-            try 
-            {
-                // 简单的锁保护（虽然 UpdateAll 一般不锁，但尽量安全点）
-                lock (_lock) 
-                {
-                    // ★★★ 【修复 3】重载前必须清空所有缓存引用 ★★★
-                    _cachedNetHw = null;
-                    _cachedDiskHw = null;
-                    _netStates.Clear(); // 清除网络状态累积，防止内存泄漏
-                    _cpuCoreCache.Clear(); // 虽然 BuildSensorMap 会重建，但清空更安全
-                    _computer.Close();
-                    _computer.Open();
-                }
-                
-                // ★★★ 必须重新构建映射，CPU 才会出现在 UI 上 ★★★
-                BuildSensorMap(); 
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("[Driver] Reload failed: " + ex.Message);
-            }
-        }
-
         private bool IsPawnIOInstalled()
         {
-            // (保持你原来的代码不变)
             try
             {
                 string keyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO";
@@ -110,8 +95,7 @@ namespace LiteMonitor.src.SystemServices
                     {
                         Debug.WriteLine($"[Driver] Trying: {url}");
 
-                        // ★★★ 改进点：使用 CancellationToken 设置 5秒 超时 ★★★
-                        // 5MB 文件如果 5秒 下不完（<1MB/s），直接视为“慢”，切下一个源
+                        // ★★★ 改进点：使用 CancellationToken 设置 10秒 超时 ★★★
                         using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
                         {
                             // 使用 GetAsync 而不是 GetByteArrayAsync，以便传入 Token
@@ -180,9 +164,6 @@ namespace LiteMonitor.src.SystemServices
         private void ShowManualFailDialog(string reason)
         {
             // 确保在 UI 线程弹窗
-            // Task.Run 里的线程不是 UI 线程，直接 MessageBox 有时会不显示或非模态
-            // 最好用 Application.OpenForms[0]?.Invoke(...)，但为了简单，直接 Show 也可以
-            // 这里为了稳妥，检查一下是否有主窗体
             if (Application.OpenForms.Count > 0)
             {
                 Application.OpenForms[0]?.Invoke(new Action(() => 
