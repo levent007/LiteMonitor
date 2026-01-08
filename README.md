@@ -7,8 +7,8 @@ A lightweight and customizable desktop hardware monitoring tool — real-time mo
 
 > 🟢 **立即下载最新版本：** [📦 GitHub Releases → LiteMonitor 最新版](https://github.com/Diorser/LiteMonitor/releases/latest)    /  [⏬国内镜像网站下载](https://litemonitor.cn/)    
 
-*注意：由于涉及底层硬件读取，杀毒软件可能会误报 WinRing0 驱动，请添加信任或允许运行。*  
-*如不放心，代码是开源的，可自行查验。*
+~~*注意：由于涉及底层硬件读取，杀毒软件可能会误报WinRing0驱动，请添加信任或允许运行。*~~
+*从1.2.0版本开始，弃用WinRing0驱动改用更安全的PawnIO驱动读取硬件数据，检测到未安装驱动时会自动安装，避免之前WinRing0驱动杀毒软件误报问题。*
 
 LiteMonitor 是一款基于 **Windows** 的现代化桌面系统监控工具。  
 支持横/竖屏/任务栏显示、主题切换、多语言、透明度显示、三色报警等，界面简洁且高度可配置 。
@@ -35,9 +35,9 @@ LiteMonitor 是一款基于 **Windows** 的现代化桌面系统监控工具。
 
 | 分类 | 监控指标 |
 |------|-----------|
-| 💻 **处理器（CPU）**  | 实时监测 CPU 使用率与温度，支持多核心平均与峰值显示。 |
-| 🎮 **显卡（GPU）**  | 展示 GPU 使用率、核心温度、显存占用情况，兼容 NVIDIA / AMD / Intel 显卡。 |
-| 💾 **内存（Memory）** | 显示系统内存使用率，清晰了解整体内存负载水平。 |
+| 💻 **处理器（CPU）**  | 实时监测 CPU 使用率、温度、频率、功耗、风扇、水冷等数据。 |
+| 🎮 **显卡（GPU）**  | 展示 GPU 使用率、核心温度、显存、频率、功耗 风扇，兼容 NVIDIA / AMD / Intel 显卡。 |
+| 💾 **主机（HOST）** | 显示系统内存占用、磁盘温度、主板温度、机箱风扇等，清晰了解电脑综合情况。 |
 | 📀 **磁盘（Disk）**   | 监控磁盘读取与写入速度（KB/s、MB/s），帮助分析存储 I/O 活跃情况。支持自动/手动选择磁盘。 |
 | 🌐 **网络（Network）** | 实时显示上传与下载速度（KB/s、MB/s），提供轻量级网络流量监控。支持自动/手动选择网卡。 |
 | 📈 **流量统计（Traffic Statistics）** | 统计每日上传与下载流量，帮助分析网络使用习惯。 |
