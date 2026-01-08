@@ -98,7 +98,8 @@ namespace LiteMonitor.src.SystemServices
                 {
                     float? cachedVal = ReadDiskSensor(_cachedDiskHw, key, lastValidMap, syncLock);
                     // 有读写活动或冷却期内，直接返回
-                    if ((cachedVal.HasValue && cachedVal.Value > 0.1f) || (DateTime.Now - _lastDiskScan).TotalSeconds < 10)
+                    // ★★★ [新增] 温度支持 ★★★
+                    if ((cachedVal.HasValue && cachedVal.Value > 0.1f) || key.Contains("Temp") || (DateTime.Now - _lastDiskScan).TotalSeconds < 10)
                         return cachedVal;
                 }
             }
@@ -164,12 +165,26 @@ namespace LiteMonitor.src.SystemServices
                 lock (syncLock) lastValidMap[key] = v;
                 return v;
             }
+            
+            // ★★★ [新增] 温度支持补漏 ★★★
+            if (key == "DISK.Temp" && bestHw != null) return ReadDiskSensor(bestHw, key, lastValidMap, syncLock);
+
             lock (syncLock) { if (lastValidMap.TryGetValue(key, out var last)) return last; }
             return null;
         }
 
         private float? ReadDiskSensor(IHardware hw, string key, Dictionary<string, float> lastValidMap, object syncLock)
         {
+            // ★★★ [新增] 温度支持 ★★★
+            if (key == "DISK.Temp")
+            {
+                foreach (var s in hw.Sensors)
+                {
+                    if (s.SensorType == SensorType.Temperature) return SafeRead(s, key, lastValidMap, syncLock);
+                }
+                return null;
+            }
+
             foreach (var s in hw.Sensors)
             {
                 if (s.SensorType != SensorType.Throughput) continue;

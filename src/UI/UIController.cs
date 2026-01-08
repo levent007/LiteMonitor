@@ -176,11 +176,11 @@ namespace LiteMonitor
         }
 
         // ★★★★★ [核心重构] 动态构建竖屏指标 ★★★★★
+        // ★★★★★ [核心重构] 动态构建竖屏指标 ★★★★★
         private void BuildMetrics()
         {
             _groups = new List<GroupLayoutInfo>();
 
-            // 1. 获取所有要在主面板显示的项，并排序
             var activeItems = _cfg.MonitorItems
                 .Where(x => x.VisibleInPanel)
                 .OrderBy(x => x.SortIndex)
@@ -188,38 +188,30 @@ namespace LiteMonitor
 
             if (activeItems.Count == 0) return;
 
-            // 2. 动态分组逻辑
-            // 为了保持现有的 UI 风格（有标题的方块），我们将连续的同类项聚合
-            // 例如: CPU.Load, CPU.Temp -> Group "CPU"
-            
             string currentGroupKey = "";
             List<MetricItem> currentGroupList = new List<MetricItem>();
 
             foreach (var cfgItem in activeItems)
             {
-                // 提取 Key 的前缀作为组名 (例如 "CPU.Load" -> "CPU")
-                string prefix = cfgItem.Key.Split('.')[0];
+                // ★★★ 修改：直接使用统一的 UIGroup 属性 ★★★
+                // 删掉了原本的 Split 和 if 判断
+                string groupKey = cfgItem.UIGroup;
 
-                // 如果前缀变了，先保存上一个组
-                if (prefix != currentGroupKey && currentGroupList.Count > 0)
+                if (groupKey != currentGroupKey && currentGroupList.Count > 0)
                 {
                     _groups.Add(new GroupLayoutInfo(currentGroupKey, currentGroupList));
                     currentGroupList = new List<MetricItem>();
                 }
 
-                currentGroupKey = prefix;
+                currentGroupKey = groupKey;
 
-                // 创建 MetricItem
-                // 始终通过LanguageManager获取翻译，包括用户自定义的覆盖值
                 string label = LanguageManager.T("Items." + cfgItem.Key);
-
                 var item = new MetricItem 
                 { 
                     Key = cfgItem.Key, 
                     Label = label 
                 };
                 
-                // 初始化数值 (避免 0 跳变)
                 float? val = _mon.Get(item.Key);
                 item.Value = val;
                 if (val.HasValue) item.DisplayValue = val.Value;
@@ -227,7 +219,6 @@ namespace LiteMonitor
                 currentGroupList.Add(item);
             }
 
-            // 添加最后一组
             if (currentGroupList.Count > 0)
             {
                 _groups.Add(new GroupLayoutInfo(currentGroupKey, currentGroupList));

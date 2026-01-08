@@ -30,11 +30,14 @@ namespace LiteMonitor.src.SystemServices
 
         private DateTime _lastMapBuild = DateTime.MinValue;
         private readonly object _lock = new object();
+        
+        // ★★★ [新增] 配置引用 ★★★
+        private Settings _cfg;
 
-        public void EnsureFresh(Computer computer)
+        public void EnsureFresh(Computer computer, Settings cfg) // ★ 签名修改
         {
             if ((DateTime.Now - _lastMapBuild).TotalMinutes > 10)
-                Rebuild(computer);
+                Rebuild(computer, cfg);
         }
 
         public void Clear()
@@ -59,13 +62,18 @@ namespace LiteMonitor.src.SystemServices
         // =======================================================================
         // [核心] 构建传感器映射与缓存 (最复杂的构建逻辑)
         // =======================================================================
-        public void Rebuild(Computer computer)
+        public void Rebuild(Computer computer, Settings cfg) // ★ 签名修改
         {
+            _cfg = cfg;
             // 1. 准备临时容器 (线程安全)
             var newMap = new Dictionary<string, ISensor>();
             var newCpuCache = new List<CpuCoreSensors>();
             IHardware? newGpu = null;
             ISensor? newBusSensor = null; // 临时变量
+            
+            // ★★★ [新增] 临时列表：用于智能匹配 ★★★
+            var candidatesMoboFans = new List<ISensor>();
+            var candidatesMoboTemps = new List<ISensor>();
 
             // 局部递归函数
             void RegisterTo(IHardware hw)
@@ -121,6 +129,21 @@ namespace LiteMonitor.src.SystemServices
                             newGpu = hw;
                         }
                     }
+                    
+                    // ★★★ [新增] GPU 风扇映射 ★★★
+                    var fan = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Fan);
+                    if (fan == null) fan = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Control);
+                    if (fan != null) newMap["GPU.Fan"] = fan;
+                }
+                
+                // ★★★ [新增] 收集主板/SuperIO 传感器 ★★★
+                if (hw.HardwareType == HardwareType.Motherboard || hw.HardwareType == HardwareType.SuperIO)
+                {
+                    foreach (var s in hw.Sensors)
+                    {
+                        if (s.SensorType == SensorType.Fan) candidatesMoboFans.Add(s);
+                        if (s.SensorType == SensorType.Temperature) candidatesMoboTemps.Add(s);
+                    }
                 }
 
                 // --- 普通传感器映射 ---
@@ -137,6 +160,52 @@ namespace LiteMonitor.src.SystemServices
             // 按优先级排序并注册
             var ordered = computer.Hardware.OrderBy(h => GetHwPriority(h));
             foreach (var hw in ordered) RegisterTo(hw);
+            
+            // ============================================
+            // ★★★ [新增] 智能匹配逻辑 ★★★
+            // ============================================
+            
+            // A. 主板温度
+            if (!newMap.ContainsKey("MOBO.Temp") && candidatesMoboTemps.Count > 0)
+            {
+                ISensor? maxTemp = null;
+                float maxVal = -999f;
+                foreach (var t in candidatesMoboTemps)
+                {
+                    if (!t.Value.HasValue) continue;
+                    float v = t.Value.Value;
+                    if (v > 0 && v < 150 && v > maxVal) { maxVal = v; maxTemp = t; }
+                }
+                if (maxTemp != null) newMap["MOBO.Temp"] = maxTemp;
+            }
+
+            // B. 风扇匹配
+            ISensor? cpuFan = null;
+            ISensor? chassisFan = null;
+
+            if (!string.IsNullOrEmpty(_cfg.PreferredCpuFan))
+            {
+                cpuFan = candidatesMoboFans.FirstOrDefault(x => x.Name == _cfg.PreferredCpuFan);
+            }
+            if (cpuFan == null)
+            {
+                cpuFan = candidatesMoboFans.FirstOrDefault(x => Has(x.Name, "CPU") && x.Value.HasValue && x.Value > 0);
+                if (cpuFan == null) cpuFan = candidatesMoboFans.FirstOrDefault(x => x.Value.HasValue && x.Value > 0);
+                if (cpuFan == null && candidatesMoboFans.Count > 0) cpuFan = candidatesMoboFans[0];
+            }
+            if (cpuFan != null) newMap["CPU.Fan"] = cpuFan;
+
+            if (!string.IsNullOrEmpty(_cfg.PreferredCaseFan))
+            {
+                chassisFan = candidatesMoboFans.FirstOrDefault(x => x.Name == _cfg.PreferredCaseFan);
+            }
+            else
+            {
+                var others = candidatesMoboFans.Where(x => x != cpuFan && x.Value.HasValue && x.Value > 0).ToList();
+                chassisFan = others.FirstOrDefault(x => x.Value < 3000);
+                if (chassisFan == null) chassisFan = others.FirstOrDefault();
+            }
+            if (chassisFan != null) newMap["CASE.Fan"] = chassisFan;
 
             // 2. 原子交换数据 (加锁)
             lock (_lock)

@@ -43,7 +43,8 @@ namespace LiteMonitor.src.SystemServices
                 IsMemoryEnabled = true,
                 IsNetworkEnabled = true,
                 IsStorageEnabled = true,
-                IsMotherboardEnabled = false,
+                // ★★★ 修改：开启主板，关闭控制器(遵照指示) ★★★
+                IsMotherboardEnabled = true,
                 IsControllerEnabled = false
             };
 
@@ -59,7 +60,7 @@ namespace LiteMonitor.src.SystemServices
                 try
                 {
                     _computer.Open();
-                    _sensorMap.Rebuild(_computer);
+                    _sensorMap.Rebuild(_computer, cfg); // ★★★ 传入 cfg
                     await _driverInstaller.SmartCheckDriver();
                 }
                 catch { }
@@ -82,6 +83,8 @@ namespace LiteMonitor.src.SystemServices
                 bool needMem = _cfg.IsAnyEnabled("MEM");
                 bool needNet = _cfg.IsAnyEnabled("NET") || _cfg.IsAnyEnabled("DATA");
                 bool needDisk = _cfg.IsAnyEnabled("DISK");
+                // ★★★ [新增] 判断主板更新需求 ★★★
+                bool needMobo = _cfg.IsAnyEnabled("MOBO") || _cfg.IsAnyEnabled("CPU.Fan");
 
                 bool isSlowScanTick = (now - _lastSlowScan).TotalSeconds > 3;
                 bool needDiskBgScan = (now - _lastDiskBgScan).TotalSeconds > 10;
@@ -104,6 +107,13 @@ namespace LiteMonitor.src.SystemServices
                             _diskManager.ProcessUpdate(hw, _cfg, isSlowScanTick, needDiskBgScan);
                             continue;
                         }
+                        
+                        // ★★★ [新增] 递归更新主板 (Motherboard / SuperIO) ★★★
+                        if ((hw.HardwareType == HardwareType.Motherboard || hw.HardwareType == HardwareType.SuperIO) && needMobo)
+                        {
+                             UpdateWithSubHardware(hw);
+                             continue;
+                        }
                     }
                 }
 
@@ -123,6 +133,16 @@ namespace LiteMonitor.src.SystemServices
             catch { }
         }
 
+        // ★★★ [新增] 递归更新子硬件，确保 SuperIO 刷新 ★★★
+        private void UpdateWithSubHardware(IHardware hw)
+        {
+            hw.Update();
+            foreach (var sub in hw.SubHardware) 
+            {
+                UpdateWithSubHardware(sub);
+            }
+        }
+
         private void ReloadComputerSafe()
         {
             try
@@ -135,7 +155,7 @@ namespace LiteMonitor.src.SystemServices
                     _computer.Close();
                     _computer.Open();
                 }
-                _sensorMap.Rebuild(_computer);
+                _sensorMap.Rebuild(_computer, _cfg); // ★★★ 传入 cfg
             }
             catch { }
         }
@@ -151,5 +171,39 @@ namespace LiteMonitor.src.SystemServices
         // 静态辅助方法 (UI用)
         public static List<string> ListAllNetworks() => Instance?._computer.Hardware.Where(h => h.HardwareType == HardwareType.Network).Select(h => h.Name).Distinct().ToList() ?? new List<string>();
         public static List<string> ListAllDisks() => Instance?._computer.Hardware.Where(h => h.HardwareType == HardwareType.Storage).Select(h => h.Name).Distinct().ToList() ?? new List<string>();
+        
+        // ★★★ [新增] 列出所有风扇 ★★★
+        public static List<string> ListAllFans()
+        {
+            if (Instance == null) return new List<string>();
+            var list = new List<string>();
+            foreach (var hw in Instance._computer.Hardware)
+            {
+                list.AddRange(GetAllSensors(hw, SensorType.Fan).Select(s => s.Name));
+            }
+            return list.Distinct().ToList();
+        }
+
+        // ★★★ [新增] 列出主板温度 ★★★
+        public static List<string> ListAllMoboTemps()
+        {
+            if (Instance == null) return new List<string>();
+            var list = new List<string>();
+            foreach (var hw in Instance._computer.Hardware)
+            {
+                if (hw.HardwareType == HardwareType.Motherboard || hw.HardwareType == HardwareType.SuperIO)
+                {
+                    list.AddRange(GetAllSensors(hw, SensorType.Temperature).Select(s => s.Name));
+                }
+            }
+            return list.Distinct().ToList();
+        }
+
+        private static IEnumerable<ISensor> GetAllSensors(IHardware hw, SensorType type)
+        {
+            foreach (var s in hw.Sensors) if (s.SensorType == type) yield return s;
+            foreach (var sub in hw.SubHardware) 
+                foreach (var s in GetAllSensors(sub, type)) yield return s;
+        }
     }
 }

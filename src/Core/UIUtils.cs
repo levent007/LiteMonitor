@@ -103,6 +103,9 @@ namespace LiteMonitor.src.Core
             if (k.Contains("TEMP")) 
                 return $"{v:0.0}°C";
 
+            // ★★★ [新增] 风扇支持 ★★★
+            if (k.Contains("FAN")) return $"{v:0} RPM";
+
             // 3. 频率类 (GHz / MHz)
             if (k.Contains("CLOCK"))
                 // 逻辑优化：>=1000MHz 显示 GHz，否则显示 MHz
@@ -184,7 +187,8 @@ namespace LiteMonitor.src.Core
             value = value.Replace("/s", "", StringComparison.OrdinalIgnoreCase).Trim();
 
             // 2. 拆分解析数值和单位 ，过滤非数字+单位的字符
-            var m = Regex.Match(value, @"^([\d.]+)([A-Za-z%°℃]+)$");
+            // ★★★ 修复：支持数字和单位之间有空格的情况 ★★★
+            var m = Regex.Match(value, @"^([\d.]+)\s*([A-Za-z%°℃]+)$");
             if (!m.Success) return value;
 
             double num = double.Parse(m.Groups[1].Value);
@@ -192,6 +196,13 @@ namespace LiteMonitor.src.Core
 
             // 3. 智能缩略：如果数字过大 (>=100)，去掉小数位
             // 例如: "123.4MB" -> "123MB", "99.5MB" -> "99.5MB"
+            // ★★★ 新增：风扇单位特殊处理（横屏/任务栏模式不显示 RPM） ★★★
+            if (unit.Equals("RPM", StringComparison.OrdinalIgnoreCase))
+            {
+                // 仅显示数字，不显示单位
+                return ((int)Math.Round(num)).ToString() + "R";
+            }
+                
             return num >= 100
                 ? ((int)Math.Round(num)) + unit
                 : num.ToString("0.0") + unit;
@@ -222,7 +233,8 @@ namespace LiteMonitor.src.Core
             string k = key.ToUpperInvariant();
 
             // 1. Adaptive (频率/功耗要转化成使用率数值)
-            if (k.Contains("CLOCK") || k.Contains("POWER"))
+            // ★★★ [新增] 风扇支持 ★★★
+            if (k.Contains("CLOCK") || k.Contains("POWER") || k.Contains("FAN"))
             {
                 value = GetAdaptivePercentage(key, value) * 100;
             }
@@ -250,8 +262,8 @@ namespace LiteMonitor.src.Core
             string k = key.ToUpperInvariant();
             var th = cfg.Thresholds;
 
-            // Load, VRAM, Mem，CLOCK/POWER
-            if (k.Contains("LOAD") || k.Contains("VRAM") || k.Contains("MEM")||k.Contains("CLOCK") || k.Contains("POWER"))
+            // Load, VRAM, Mem，CLOCK/POWER，★ FAN
+            if (k.Contains("LOAD") || k.Contains("VRAM") || k.Contains("MEM")||k.Contains("CLOCK") || k.Contains("POWER") || k.Contains("FAN"))
                 return (th.Load.Warn, th.Load.Crit);
             
             // Temp
@@ -337,7 +349,8 @@ namespace LiteMonitor.src.Core
 
             // A. 统一计算进度百分比 (0.0 ~ 1.0)
             // ---------------------------------------------------------
-            if (k.Contains("CLOCK") || k.Contains("POWER"))
+            // ★★★ [新增] 风扇支持 ★★★
+            if (k.Contains("CLOCK") || k.Contains("POWER") || k.Contains("FAN"))
             {
                 // 复用 GetAdaptivePercentage (内部封装了读取 Settings 和 Max 的逻辑)
                 // 避免了在 DrawBar 里重写一遍 Settings 读取代码
@@ -397,6 +410,10 @@ namespace LiteMonitor.src.Core
             else if (key == "CPU.Power") max = cfg.RecordedMaxCpuPower;
             else if (key == "GPU.Clock") max = cfg.RecordedMaxGpuClock;
             else if (key == "GPU.Power") max = cfg.RecordedMaxGpuPower;
+            // ★★★ [新增] 风扇支持 ★★★
+            else if (key == "CPU.Fan") max = cfg.RecordedMaxCpuFan;
+            else if (key == "CASE.Fan") max = cfg.RecordedMaxChassisFan;
+            else if (key == "GPU.Fan") max = cfg.RecordedMaxGpuFan;
 
             if (max < 1) max = 1;
             double pct = val / max;

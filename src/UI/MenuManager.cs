@@ -252,24 +252,19 @@ namespace LiteMonitor
 
 
 
+           // ==================================================================================
+            // 2. 显示监控项 (动态生成) - [修复版] 含弹窗引导
             // ==================================================================================
-            // 2. 显示监控项 (动态生成)
-            // ==================================================================================
-            // [修改] 增加 targetPage 判断：
-            // - 如果在主界面右键，操作 VisibleInPanel
-            // - 如果在任务栏右键，操作 VisibleInTaskbar
+            var monitorRoot = new ToolStripMenuItem(LanguageManager.T("Menu.MonitorItemDisplay"));
 
-            var grpShow = new ToolStripMenuItem(LanguageManager.T("Menu.MonitorItemDisplay"));
-            menu.Items.Add(grpShow);
-
-            // --- 内部辅助函数：最大值引导提示 (保留 UI 交互逻辑) ---
+            // --- 内部辅助函数：首次开启时的最大值设定引导 ---
             void CheckAndRemind(string name)
             {
                 if (cfg.MaxLimitTipShown) return;
 
                 string msg = cfg.Language == "zh"
-                    ? $"您是首次开启 {name}。\n\n建议设置一下电脑实际“最大{name}”，让进度条显示更准确。\n\n是否现在去设置？\n\n点“否”将不再提示，程序将在高负载时（如大型游戏时）进行动态学习最大值"
-                    : $"You are enabling {name} for the first time.\n\nIt is recommended to set the actual 'Max {name}' for accurate progress bars.\n\nGo to settings now?\n\n(Select 'No' to suppress this prompt. The app will auto-learn the max value under high load.)";
+                    ? $"您是首次开启 {name}。\n\n建议设置一下“电脑{name}”实际最大值，让进度条显示更准确。\n\n是否现在去设置？\n\n点“否”将不再提示，程序将在高负载时（如大型游戏时）进行动态学习最大值"
+                    : $"First launch of {name}.\n\nSet the actual maximum value for accurate progress bar display.\n\nGo to settings now?\n\nSelect \"No\" to skip permanently. App will auto-learn max value in high-load scenarios (e.g., gaming).";
 
                 cfg.MaxLimitTipShown = true;
                 cfg.Save();
@@ -278,11 +273,9 @@ namespace LiteMonitor
                 {
                     try
                     {
-                        // 打开设置窗口
                         using (var f = new LiteMonitor.src.UI.SettingsForm(cfg, ui, form))
                         {
-                            f.SwitchPage("System"); 
-
+                            f.SwitchPage("System"); // 跳转到可以设置最大值的页面
                             f.ShowDialog(form);
                         }
                     }
@@ -293,113 +286,113 @@ namespace LiteMonitor
                 }
             }
 
-            // --- 动态遍历 MonitorItems 列表 ---
-            var sortedItems = cfg.MonitorItems.OrderBy(x => x.SortIndex).ToList();
-            
-            // 定义需要“整组合并”的特殊组
-            var unifiedGroups = new HashSet<string> { "DISK", "NET", "DATA" };
-            var processedGroups = new HashSet<string>();
-
-            // ★ 新增：用于记录上一个组名，判断是否需要加下划线
-            string lastGroup = null;
-
-            foreach (var itemConfig in sortedItems)
+            if (isTaskbarMode)
             {
-                // 获取组前缀 (CPU, GPU, DISK, NET, DATA...)
-                string groupKey = itemConfig.Key.Split('.')[0];
-
-                // 如果是已处理的特殊组，直接跳过（避免重复显示）
-                if (unifiedGroups.Contains(groupKey) && processedGroups.Contains(groupKey)) continue;
-
-                // ★★★ 核心修改：如果组名变了（且不是第一项），就加一条下划线 ★★★
-                if (lastGroup != null && groupKey != lastGroup)
+                // --- 模式 A: 任务栏 (平铺排序 + 显示全称和简称) ---
+                var sortedItems = cfg.MonitorItems.OrderBy(x => x.TaskbarSortIndex).ToList();
+                
+                foreach (var itemConfig in sortedItems)
                 {
-                    grpShow.DropDownItems.Add(new ToolStripSeparator());
-                }
-                lastGroup = groupKey; // 更新记录
-
-                // =========================================================
-                // 情况 A：特殊组 (Disk/Net/Traffic) -> 合并显示为一个开关
-                // =========================================================
-                if (unifiedGroups.Contains(groupKey))
-                {
-                    processedGroups.Add(groupKey); // 标记该组已处理
-
-                    // 获取该组下的所有监控项
-                    var groupItems = sortedItems.Where(x => x.Key.StartsWith(groupKey + ".")).ToList();
+                    // 1. 拼接名称
+                    string full = LanguageManager.T("Items." + itemConfig.Key);
+                    if (full.StartsWith("Items.")) full = itemConfig.Key;
                     
-                    // 获取组名称
-                    string groupLabel = LanguageManager.T("Groups." + groupKey);
-                    if (string.IsNullOrEmpty(groupLabel)) groupLabel = groupKey;
+                    string shortName = LanguageManager.T("Short." + itemConfig.Key);
+                    if (shortName.StartsWith("Short.")) shortName = itemConfig.Key;
 
-                    // 状态判断：根据是否是任务栏模式，检查不同属性
-                    bool isAnyVisible = isTaskbarMode
-                        ? groupItems.Any(x => x.VisibleInTaskbar)
-                        : groupItems.Any(x => x.VisibleInPanel);
+                    // 注意：这里保留了您提供的 $"{shortName} ({full})" 格式 (例如: "Up (上传速度)")
+                    string label = string.IsNullOrEmpty(itemConfig.TaskbarLabel) 
+                        ? $"{shortName} ({full})" : itemConfig.TaskbarLabel;
 
-                    var groupMenu = new ToolStripMenuItem(groupLabel)
+                    // 2. 创建菜单
+                    var itemMenu = new ToolStripMenuItem(label)
                     {
-                        Checked = isAnyVisible,
+                        Checked = itemConfig.VisibleInTaskbar,
                         CheckOnClick = true
                     };
 
-                    groupMenu.CheckedChanged += (_, __) =>
-                    {
-                        bool newState = groupMenu.Checked;
-                        foreach (var gItem in groupItems)
+                    // 3. 事件与提示
+                    itemMenu.CheckedChanged += (_, __) => { 
+                        itemConfig.VisibleInTaskbar = itemMenu.Checked; 
+                        cfg.Save(); 
+                        if (ui != null) ui.RebuildLayout(); 
+
+                        // ★★★ [核心修复] 勾选时触发弹窗引导 ★★★
+                        if (itemMenu.Checked)
                         {
-                            if (isTaskbarMode)
-                                gItem.VisibleInTaskbar = newState;
-                            else
-                                gItem.VisibleInPanel = newState;
-                        }
-                        cfg.Save();
-                        AppActions.ApplyMonitorLayout(ui, form);
-                    };
-                    grpShow.DropDownItems.Add(groupMenu);
-                }
-                // =========================================================
-                // 情况 B：普通组 (CPU/GPU/MEM) -> 直接扁平化显示单项
-                // =========================================================
-                else
-                {
-                    string label = !string.IsNullOrEmpty(itemConfig.UserLabel)
-                        ? itemConfig.UserLabel
-                        : LanguageManager.T("Items." + itemConfig.Key);
-                    if (string.IsNullOrEmpty(label)) label = itemConfig.Key;
-
-                    // 状态判断
-                    bool isVisible = isTaskbarMode ? itemConfig.VisibleInTaskbar : itemConfig.VisibleInPanel;
-
-                    var menuItem = new ToolStripMenuItem(label)
-                    {
-                        Checked = isVisible,
-                        CheckOnClick = true
-                    };
-
-                    menuItem.CheckedChanged += (_, __) =>
-                    {
-                        if (isTaskbarMode)
-                            itemConfig.VisibleInTaskbar = menuItem.Checked;
-                        else
-                            itemConfig.VisibleInPanel = menuItem.Checked;
-
-                        cfg.Save();
-                        AppActions.ApplyMonitorLayout(ui, form);
-
-                        if (menuItem.Checked)
-                        {
-                            if (itemConfig.Key.Contains("Clock") || itemConfig.Key.Contains("Power"))
+                            if (itemConfig.Key.Contains("Clock") || itemConfig.Key.Contains("Power") || 
+                                itemConfig.Key.Contains("Fan") || itemConfig.Key.Contains("Pump"))
                             {
-                                CheckAndRemind(label);
+                                CheckAndRemind(full); // 传入全称给弹窗显示
                             }
                         }
                     };
-                    grpShow.DropDownItems.Add(menuItem);
+
+                    // 4. 鼠标悬停提示
+                    if (itemConfig.Key.Contains("Clock") || itemConfig.Key.Contains("Power") || 
+                        itemConfig.Key.Contains("Fan") || itemConfig.Key.Contains("Pump"))
+                        itemMenu.ToolTipText = LanguageManager.T("Menu.CalibrationTip");
+
+                    monitorRoot.DropDownItems.Add(itemMenu);
                 }
             }
+            else
+            {
+                // --- 模式 B: 主界面 (HOST分组 + 组内排序) ---
+                var sortedItems = cfg.MonitorItems.OrderBy(x => x.SortIndex).ToList();
+                var groups = sortedItems.GroupBy(x => x.UIGroup); // 利用 UIGroup 自动识别 HOST
 
-            menu.Items.Add(new ToolStripSeparator());
+                foreach (var g in groups)
+                {
+                    // 分组标题
+                    string gName = LanguageManager.T("Groups." + g.Key);
+                    if (cfg.GroupAliases.ContainsKey(g.Key)) gName = cfg.GroupAliases[g.Key];
+                    
+                    monitorRoot.DropDownItems.Add(new ToolStripMenuItem(gName) { Enabled = false, ForeColor = Color.Gray });
+
+                    foreach (var itemConfig in g)
+                    {
+                        string def = LanguageManager.T("Items." + itemConfig.Key);
+                        if (def.StartsWith("Items.")) def = itemConfig.Key;
+                        string label = string.IsNullOrEmpty(itemConfig.UserLabel) ? def : itemConfig.UserLabel;
+
+                        var itemMenu = new ToolStripMenuItem(label)
+                        {
+                            Checked = itemConfig.VisibleInPanel,
+                            CheckOnClick = true
+                        };
+
+                        itemMenu.CheckedChanged += (_, __) => { 
+                            itemConfig.VisibleInPanel = itemMenu.Checked; 
+                            cfg.Save(); 
+                            if (ui != null) ui.RebuildLayout(); 
+
+                            // ★★★ [核心修复] 勾选时触发弹窗引导 ★★★
+                            if (itemMenu.Checked)
+                            {
+                                if (itemConfig.Key.Contains("Clock") || itemConfig.Key.Contains("Power") || 
+                                    itemConfig.Key.Contains("Fan") || itemConfig.Key.Contains("Pump"))
+                                {
+                                    CheckAndRemind(label);
+                                }
+                            }
+                        };
+
+                        if (itemConfig.Key.Contains("Clock") || itemConfig.Key.Contains("Power") || 
+                            itemConfig.Key.Contains("Fan") || itemConfig.Key.Contains("Pump"))
+                            itemMenu.ToolTipText = LanguageManager.T("Menu.CalibrationTip");
+
+                        monitorRoot.DropDownItems.Add(itemMenu);
+                    }
+                    monitorRoot.DropDownItems.Add(new ToolStripSeparator());
+                }
+                
+                // 删掉最后多余的分割线
+                if (monitorRoot.DropDownItems.Count > 0 && monitorRoot.DropDownItems[monitorRoot.DropDownItems.Count - 1] is ToolStripSeparator)
+                    monitorRoot.DropDownItems.RemoveAt(monitorRoot.DropDownItems.Count - 1);
+            }
+
+            menu.Items.Add(monitorRoot);
 
             // ==================================================================================
             // 3. 主题、工具与更多功能

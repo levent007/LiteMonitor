@@ -34,6 +34,10 @@ namespace LiteMonitor
         public string PreferredDisk { get; set; } = "";
         public string LastAutoDisk { get; set; } = "";
         
+        // ★★★ [新增] 首选风扇 ★★★
+        public string PreferredCpuFan { get; set; } = "";
+        public string PreferredCaseFan { get; set; } = "";
+
         // 主窗体所在的屏幕设备名 (用于记忆上次位置)
         public string ScreenDevice { get; set; } = "";
 
@@ -82,6 +86,12 @@ namespace LiteMonitor
         public float RecordedMaxCpuClock { get; set; } = 4200.0f;
         public float RecordedMaxGpuPower { get; set; } = 100.0f;
         public float RecordedMaxGpuClock { get; set; } = 1800.0f;
+        
+        // ★★★ [新增] 风扇最大值记录 ★★★
+        public float RecordedMaxCpuFan { get; set; } = 4000f;
+        public float RecordedMaxGpuFan { get; set; } = 3500f;
+        public float RecordedMaxChassisFan { get; set; } = 3000f;
+
         public bool MaxLimitTipShown { get; set; } = false;
         
         public bool AlertTempEnabled { get; set; } = true;
@@ -129,11 +139,18 @@ namespace LiteMonitor
             
             if (key.Contains("Clock") && val > 10000) return; 
             if (key.Contains("Power") && val > 1000) return;
+            // ★★★ [新增] 风扇转速异常过滤 ★★★
+            if (key.Contains("Fan") && val > 10000) return;
 
             if (key == "CPU.Power" && val > RecordedMaxCpuPower) { RecordedMaxCpuPower = val; changed = true; }
             else if (key == "CPU.Clock" && val > RecordedMaxCpuClock) { RecordedMaxCpuClock = val; changed = true; }
             else if (key == "GPU.Power" && val > RecordedMaxGpuPower) { RecordedMaxGpuPower = val; changed = true; }
             else if (key == "GPU.Clock" && val > RecordedMaxGpuClock) { RecordedMaxGpuClock = val; changed = true; }
+            
+            // ★★★ [新增] 自动记录风扇最大值 ★★★
+            else if (key == "CPU.Fan" && val > RecordedMaxCpuFan) { RecordedMaxCpuFan = val; changed = true; }
+            else if (key == "GPU.Fan" && val > RecordedMaxGpuFan) { RecordedMaxGpuFan = val; changed = true; }
+            else if (key == "MOBO.Fan" && val > RecordedMaxChassisFan) { RecordedMaxChassisFan = val; changed = true; }
 
             if (changed && (DateTime.Now - _lastAutoSave).TotalSeconds > 30)
             {
@@ -189,18 +206,29 @@ namespace LiteMonitor
                 new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 1, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Clock", SortIndex = 2, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "CPU.Power", SortIndex = 3, VisibleInPanel = false },
+                // ★★★ [新增] CPU Fan ★★★
+                new MonitorItemConfig { Key = "CPU.Fan",   SortIndex = 4, VisibleInPanel = false },
+
                 new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 10, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 11, VisibleInPanel = true },
                 new MonitorItemConfig { Key = "GPU.Clock", SortIndex = 12, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.Power", SortIndex = 13, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 14, VisibleInPanel = true },
+                // ★★★ [新增] GPU Fan ★★★
+                new MonitorItemConfig { Key = "GPU.Fan",   SortIndex = 14, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 15, VisibleInPanel = true },
+
                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 20, VisibleInPanel = true, VisibleInTaskbar = true },
+                new MonitorItemConfig { Key = "DISK.Temp", SortIndex = 21, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "MOBO.Temp", SortIndex = 22, VisibleInPanel = false },
+                new MonitorItemConfig { Key = "CASE.Fan",  SortIndex = 23, VisibleInPanel = false },
+
                 new MonitorItemConfig { Key = "DISK.Read", SortIndex = 30, VisibleInPanel = true },
                 new MonitorItemConfig { Key = "DISK.Write",SortIndex = 31, VisibleInPanel = true },
+
                 new MonitorItemConfig { Key = "NET.Up",    SortIndex = 40, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "NET.Down",  SortIndex = 41, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "DATA.DayUp",  SortIndex = 50, VisibleInPanel = true },
-                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 51, VisibleInPanel = true }
+                new MonitorItemConfig { Key = "DATA.DayDown",SortIndex = 51, VisibleInPanel = true },
             };
         }
     }
@@ -215,6 +243,27 @@ namespace LiteMonitor
         public int SortIndex { get; set; } = 0;
         // ★★★ 新增：任务栏独立排序索引 ★★★
         public int TaskbarSortIndex { get; set; } = 0;
+        // ★★★ 新增：统一的分组属性 ★★★
+        // 所有界面（主界面、设置页、菜单）都统一调用这个属性来决定它属于哪个组
+        // 从而避免了在 UI 代码里到处写 if else
+        [JsonIgnore]
+        public string UIGroup 
+        {
+            get 
+            {
+                // 定义哪些 Key 属于 HOST 组
+                if (Key == "MEM.Load" || 
+                    Key == "MOBO.Temp" || 
+                    Key == "DISK.Temp" || 
+                    Key == "CASE.Fan") 
+                {
+                    return "HOST";
+                }
+                
+                // 默认逻辑：取前缀 (例如 CPU.Load -> CPU)
+                return Key.Split('.')[0];
+            }
+        }
     }
 
     public class ThresholdsSet

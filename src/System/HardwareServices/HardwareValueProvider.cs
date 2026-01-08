@@ -71,7 +71,7 @@ namespace LiteMonitor.src.SystemServices
         // ===========================================================
         public float? GetValue(string key)
         {
-            _sensorMap.EnsureFresh(_computer);
+            _sensorMap.EnsureFresh(_computer, _cfg); // ★★★ 传入 cfg
 
             // ★★★ [新增] 拦截 CPU.Load 请求 ★★★
             if (key == "CPU.Load")
@@ -167,6 +167,21 @@ namespace LiteMonitor.src.SystemServices
                     return used / total * 100f;
                 }
                 lock (_lock) { if (_sensorMap.TryGetSensor("GPU.VRAM.Load", out var s) && s.Value.HasValue) return s.Value; }
+                return null;
+            }
+            
+            // ★★★ [新增] 风扇与主板温度获取 ★★★
+            if (key == "CPU.Fan" || key == "CASE.Fan" || key == "GPU.Fan" || key == "MOBO.Temp")
+            {
+                lock (_lock)
+                {
+                    if (_sensorMap.TryGetSensor(key, out var s) && s.Value.HasValue)
+                    {
+                        float val = s.Value.Value;
+                        _cfg.UpdateMaxRecord(key, val); // 记录最大值
+                        return val;
+                    }
+                }
                 return null;
             }
 

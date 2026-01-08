@@ -204,7 +204,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             else
             {
                 var items = Config.MonitorItems.OrderBy(x => x.SortIndex).ToList();
-                var groups = items.GroupBy(x => x.Key.Split('.')[0]);
+                
+                // ★★★ 修改：使用 GetGroupKey 实现强制分组 ★★★
+                var groups = items.GroupBy(x => x.UIGroup);
+                
                 foreach (var g in groups.Reverse())
                 {
                     var block = CreateGroupBlock(g.Key, g.ToList());
