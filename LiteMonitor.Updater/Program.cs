@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text; // ★ 必须添加引用
 using System.Threading;
 
 namespace LiteMonitor.Updater
@@ -14,6 +15,9 @@ namespace LiteMonitor.Updater
 
         static void Main(string[] args)
         {
+            // ★★★ [修复乱码 Step 0] 注册编码提供程序以支持 GBK ★★★
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             if (args.Length == 0) return;
 
             string zipFile = args[0];
@@ -55,7 +59,11 @@ namespace LiteMonitor.Updater
 
             try
             {
-                ZipFile.ExtractToDirectory(zipFile, tempDir, true);
+                // ★★★ [修复乱码 Step 1] 显式指定使用 GBK 编码解压 ★★★
+                // 逻辑：如果 ZIP 内部标记了 UTF-8，.NET 会优先用 UTF-8；
+                // 如果没标记（旧版压缩工具），则使用我们传入的 GBK 解析中文。
+                var gbk = Encoding.GetEncoding("GBK");
+                ZipFile.ExtractToDirectory(zipFile, tempDir, gbk, true);
             }
             catch (Exception ex)
             {
@@ -102,7 +110,7 @@ namespace LiteMonitor.Updater
             // ===========================================================
             RestartMain(baseDir);
         }
-
+        
         // ------------------ 判断 LiteMonitor.exe（忽略大小写） ------------------
         private static bool ContainsLiteMonitorExe(string dir)
         {

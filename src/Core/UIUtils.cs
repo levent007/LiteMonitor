@@ -252,7 +252,7 @@ namespace LiteMonitor.src.Core
             return 0; // Safe
         }
 
-        
+
         // ============================================================
         // ② 阈值解析（各类指标）
         // ============================================================
@@ -301,6 +301,14 @@ namespace LiteMonitor.src.Core
         public static GraphicsPath RoundRect(Rectangle r, int radius)
         {
             GraphicsPath p = new GraphicsPath();
+
+            // ★★★ [CRITICAL FIX] 防止宽度/高度 <= 0 导致的 Crash ★★★
+            // GDI+ 的 AddArc 如果遇到宽或高为 0 会抛出 ArgumentException
+            if (r.Width <= 0 || r.Height <= 0) 
+            {
+                // 返回空路径（不绘制任何东西），安全的退出
+                return p;
+            }
             
             // ★★★ 修复：如果半径 <= 0，直接添加直角矩形并返回，防止 Crash ★★★
             if (radius <= 0)
@@ -312,6 +320,8 @@ namespace LiteMonitor.src.Core
             int d = radius * 2;
             
             // 防御性编程：如果圆角直径比矩形还大，限制它
+            // 此时如果 d 变成了 0（因为 width 是 0），下面的 AddArc 依然会崩，
+            // 所以最上面的 Width <= 0 判断非常重要。
             if (d > r.Width) d = r.Width;
             if (d > r.Height) d = r.Height;
 
@@ -322,8 +332,12 @@ namespace LiteMonitor.src.Core
             p.CloseFigure();
             return p;
         }
+
         public static void FillRoundRect(Graphics g, Rectangle r, int radius, Color c)
         {
+            // ★★★ [CRITICAL FIX] 提前拦截无效矩形，避免无谓的资源创建和异常 ★★★
+            if (r.Width <= 0 || r.Height <= 0) return;
+
             using var brush = new SolidBrush(c);
             using var path = RoundRect(r, radius);
             g.FillPath(brush, path);
@@ -335,6 +349,9 @@ namespace LiteMonitor.src.Core
         // ============================================================
         public static void DrawBar(Graphics g, Rectangle bar, double value, string key, Theme t)
         {
+            // ★★★ [FIX] 进度条背景也需要防崩 ★★★
+            if (bar.Width <= 0 || bar.Height <= 0) return;
+
             // 1. 绘制背景槽 - 使用缓存画刷
             using (var bgPath = RoundRect(bar, bar.Height / 2))
             {
@@ -390,10 +407,14 @@ namespace LiteMonitor.src.Core
                 // 简单防越界
                 if (filled.Width > bar.Width) filled.Width = bar.Width;
 
-                using (var fgPath = RoundRect(filled, filled.Height / 2))
+                // ★★★ [FIX] 绘制前景条时也要检查 RoundRect 
+                if (filled.Width > 0 && filled.Height > 0)
                 {
-                    // 优化：使用缓存的前景画刷
-                    g.FillPath(GetBrush(colorCode), fgPath);
+                    using (var fgPath = RoundRect(filled, filled.Height / 2))
+                    {
+                        // 优化：使用缓存的前景画刷
+                        g.FillPath(GetBrush(colorCode), fgPath);
+                    }
                 }
             }
         }
