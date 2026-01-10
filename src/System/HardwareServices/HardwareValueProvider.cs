@@ -22,15 +22,15 @@ namespace LiteMonitor.src.SystemServices
         private PerformanceCounter? _cpuPerfCounter;
         private float _lastSystemCpuLoad = 0f;
 
-        // ★★★ 错误重试计数器 ★★★
+        // ★★★ [新增] 错误重试计数器，防止无限重建 ★★★
         private int _perfCounterErrorCount = 0;
         private DateTime _lastPerfCounterRetry = DateTime.MinValue;
 
-        // ★★★ Tick 级智能缓存 (防止同帧重复计算) ★★★
+        // ★★★ [新增] Tick 级智能缓存 (防止同帧重复计算) ★★★
         private readonly Dictionary<string, float> _tickCache = new();
 
         // ★★★ [终极优化] 对象级缓存：(Sensor对象, 配置来源字符串) ★★★
-        // 缓存住找到的 ISensor 对象指针，彻底消除每秒的字符串解析和遍历开销
+        // 缓存住找到的 ISensor 对象，彻底消除每秒的字符串解析和遍历开销
         private readonly Dictionary<string, (ISensor Sensor, string ConfigSource)> _manualSensorCache = new();
 
         public HardwareValueProvider(Computer c, Settings s, SensorMap map, NetworkManager net, DiskManager disk, object syncLock, Dictionary<string, float> lastValid)
@@ -44,7 +44,7 @@ namespace LiteMonitor.src.SystemServices
             _lastValidMap = lastValid;
         }
 
-        // ★★★ 清空缓存（当硬件重启时调用） ★★★
+        // ★★★ [新增] 清空缓存（当硬件重启时必须调用） ★★★
         public void ClearCache()
         {
             _manualSensorCache.Clear();
@@ -53,16 +53,16 @@ namespace LiteMonitor.src.SystemServices
 
         public void UpdateSystemCpuCounter()
         {
-            // 每一轮更新开始时，清空本轮缓存
+            // ★★★ [新增] 每一轮更新开始时，清空本轮缓存 ★★★
             _tickCache.Clear();
 
             if (_cfg.UseSystemCpuLoad)
             {
-                // 智能重试机制：失败 10 次后，每 30 秒才重试一次
+                // ★★★ [优化] 智能重试机制：失败 10 次后，每 30 秒才重试一次 ★★★
                 if (_cpuPerfCounter == null)
                 {
                     if (_perfCounterErrorCount > 10 && (DateTime.Now - _lastPerfCounterRetry).TotalSeconds < 30)
-                        return; // 冷却中
+                        return; // 冷却中，跳过
 
                     try 
                     { 
@@ -91,7 +91,7 @@ namespace LiteMonitor.src.SystemServices
                         float rawVal = _cpuPerfCounter.NextValue();
                         if (rawVal > 100f) rawVal = 100f;
                         _lastSystemCpuLoad = rawVal;
-                        _perfCounterErrorCount = 0; 
+                        _perfCounterErrorCount = 0; // 成功则重置错误计数
                     }
                     catch 
                     { 
@@ -107,22 +107,24 @@ namespace LiteMonitor.src.SystemServices
             }
         }
 
+
         // ===========================================================
         // ===================== 公共取值入口 =========================
         // ===========================================================
         public float? GetValue(string key)
         {
-            // 1. 优先查帧缓存 (极速返回)
+            // ★★★ [新增 3] 优先查缓存，如果本帧算过，直接返回 ★★★
             if (_tickCache.TryGetValue(key, out float cachedVal)) return cachedVal;
 
             _sensorMap.EnsureFresh(_computer, _cfg);
+
+            // 定义临时结果变量
             float? result = null;
 
-            // ★★★ [终极优化] 使用 switch 替代 if-else 链 ★★★
-            // 编译器会将其优化为 Hash 跳转表，查找复杂度从 O(N) 降为 O(1)
+            // ★★★ [终极优化] 使用 switch 替代 if-else 链，实现 O(1) 哈希跳转 ★★★
             switch (key)
             {
-                // --- CPU 相关 ---
+                // 1. CPU.Load
                 case "CPU.Load":
                     if (_cfg.UseSystemCpuLoad)
                     {
@@ -130,6 +132,7 @@ namespace LiteMonitor.src.SystemServices
                     }
                     else
                     {
+                        // 手动聚合
                         var cpu = _computer.Hardware.FirstOrDefault(h => h.HardwareType == HardwareType.Cpu);
                         if (cpu != null)
                         {
@@ -147,11 +150,18 @@ namespace LiteMonitor.src.SystemServices
                             }
                             if (coreCount > 0) result = (float)(totalLoad / coreCount);
                         }
-                        if (result == null) lock (_lock) { if (_sensorMap.TryGetSensor("CPU.Load", out var s) && s.Value.HasValue) result = s.Value.Value; }
+                        
+                        // 兜底
+                        if (result == null)
+                        {
+                            lock (_lock) { if (_sensorMap.TryGetSensor("CPU.Load", out var s) && s.Value.HasValue) result = s.Value.Value; }
+                        }
+                        // 如果还是没值，默认为 0
                         if (result == null) result = 0f;
                     }
                     break;
 
+                // 2. CPU.Temp
                 case "CPU.Temp":
                     float maxTemp = -1000f;
                     bool found = false;
@@ -167,11 +177,15 @@ namespace LiteMonitor.src.SystemServices
                         }
                     }
                     if (found) result = maxTemp;
-                    if (result == null) lock (_lock) { if (_sensorMap.TryGetSensor("CPU.Temp", out var s) && s.Value.HasValue) result = s.Value.Value; }
+                    
+                    if (result == null)
+                    {
+                        lock (_lock) { if (_sensorMap.TryGetSensor("CPU.Temp", out var s) && s.Value.HasValue) result = s.Value.Value; }
+                    }
                     if (result == null) result = 0f;
                     break;
 
-                // --- 每日流量 ---
+                // 4. 每日流量
                 case "DATA.DayUp":
                     result = TrafficLogger.GetTodayStats().up;
                     break;
@@ -179,8 +193,9 @@ namespace LiteMonitor.src.SystemServices
                     result = TrafficLogger.GetTodayStats().down;
                     break;
 
-                // --- 内存 ---
+                // 6. 内存
                 case "MEM.Load":
+                    // 检测总内存逻辑
                     if (Settings.DetectedRamTotalGB <= 0)
                     {
                         lock (_lock)
@@ -195,16 +210,18 @@ namespace LiteMonitor.src.SystemServices
                             }
                         }
                     }
-                    // 注意：这里 break 后会走到下方的“通用兜底”，因为 MEM.Load 也是个传感器 Key
+                    // 下面 break 后会走到通用传感器逻辑去取值
                     break;
 
-                // --- 显存 ---
+                // 7. 显存
                 case "GPU.VRAM":
+                    // 注意：这里递归调用了 GetValue，会用到缓存，非常高效
                     float? used = GetValue("GPU.VRAM.Used");
                     float? total = GetValue("GPU.VRAM.Total");
                     if (used.HasValue && total.HasValue && total > 0)
                     {
                         if (Settings.DetectedGpuVramTotalGB <= 0) Settings.DetectedGpuVramTotalGB = total.Value / 1024f;
+                        // 单位转换
                         if (total > 10485760) { used /= 1048576f; total /= 1048576f; }
                         result = used / total * 100f;
                     }
@@ -214,7 +231,7 @@ namespace LiteMonitor.src.SystemServices
                     }
                     break;
 
-                // --- 风扇与泵 (手动指定 + 缓存加速) ---
+                // 8. 风扇/泵 (带 Max 记录) + [终极优化：缓存优先 -> 急速反向查找]
                 case "CPU.Fan":
                 case "CPU.Pump":
                 case "CASE.Fan":
@@ -224,7 +241,7 @@ namespace LiteMonitor.src.SystemServices
                     else if (key == "CPU.Pump") prefFan = _cfg.PreferredCpuPump;
                     else if (key == "CASE.Fan") prefFan = _cfg.PreferredCaseFan;
 
-                    // 1. 查对象缓存 (O(1) 访问)
+                    // A. 查对象缓存 (O(1) 访问)
                     bool foundFan = false;
                     if (_manualSensorCache.TryGetValue(key, out var cachedFan))
                     {
@@ -235,7 +252,7 @@ namespace LiteMonitor.src.SystemServices
                         }
                     }
 
-                    // 2. 缓存失效，执行急速反向查找
+                    // B. 缓存失效，执行急速反向查找
                     if (!foundFan)
                     {
                         ISensor? s = FindSensorReverse(prefFan, SensorType.Fan);
@@ -257,11 +274,12 @@ namespace LiteMonitor.src.SystemServices
                     if (result.HasValue) _cfg.UpdateMaxRecord(key, result.Value);
                     break;
 
-                // --- 主板温度 (手动指定 + 缓存加速) ---
+                // [插入/修改逻辑] 主板温度 (缓存 + 急速查找)
                 case "MOBO.Temp":
                     string prefMobo = _cfg.PreferredMoboTemp;
                     bool foundMobo = false;
 
+                    // A. 查缓存
                     if (_manualSensorCache.TryGetValue(key, out var cachedMobo))
                     {
                         if (cachedMobo.ConfigSource == prefMobo)
@@ -271,6 +289,7 @@ namespace LiteMonitor.src.SystemServices
                         }
                     }
 
+                    // B. 查找并更新
                     if (!foundMobo)
                     {
                         ISensor? s = FindSensorReverse(prefMobo, SensorType.Temperature);
@@ -280,10 +299,12 @@ namespace LiteMonitor.src.SystemServices
                             result = s.Value;
                         }
                     }
+                    // 没找到则 break，走下方通用兜底
                     break;
 
-                // --- 默认处理 (模糊匹配) ---
+                // 默认分支：处理模糊匹配 (StartsWith/Contains)
                 default:
+                    // 3. 网络与磁盘
                     if (key.StartsWith("NET"))
                     {
                         result = _networkManager.GetBestValue(key, _computer, _cfg, _lastValidMap, _lock);
@@ -292,6 +313,7 @@ namespace LiteMonitor.src.SystemServices
                     {
                         result = _diskManager.GetBestValue(key, _computer, _cfg, _lastValidMap, _lock);
                     }
+                    // 5. 频率与功耗
                     else if (key.Contains("Clock") || key.Contains("Power"))
                     {
                         result = GetCompositeValue(key);
@@ -299,7 +321,7 @@ namespace LiteMonitor.src.SystemServices
                     break;
             }
 
-            // 10. 通用传感器查找 (兜底机制 - 如果上面的 case 都没有赋值 result)
+            // 10. 通用传感器查找 (兜底)
             if (result == null)
             {
                 lock (_lock)
@@ -320,7 +342,7 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
 
-            // 写入帧缓存并返回 
+            // ★★★ [新增 4] 写入缓存并返回 ★★★
             if (result.HasValue)
             {
                 _tickCache[key] = result.Value;
@@ -336,43 +358,37 @@ namespace LiteMonitor.src.SystemServices
         // =====================================================================
         private ISensor? FindSensorReverse(string savedString, SensorType type)
         {
-            // 0. 快速校验
             if (string.IsNullOrEmpty(savedString) || savedString.Contains("Auto") || savedString.Contains("自动")) 
                 return null;
 
-            // 1. 解析字符串 (格式: "Fan #1 [ASUS Z790]")
             int idx = savedString.LastIndexOf('[');
-            if (idx < 0) return null; // 格式非法
+            if (idx < 0) return null; 
 
             // 预处理字符串
             string targetSensorName = savedString.Substring(0, idx).Trim();
             string targetHardwareName = savedString.Substring(idx + 1).TrimEnd(']');
 
-            // 2. 局部递归查找函数
+            // 局部递归
             ISensor? SearchBranch(IHardware h)
             {
-                // 先找当前硬件的传感器
                 foreach (var s in h.Sensors)
                 {
                     if (s.SensorType == type && s.Name == targetSensorName)
-                        return s; // 返回对象
+                        return s; 
                 }
-                // 再找子硬件 (比如 SuperIO)
                 foreach (var sub in h.SubHardware)
                 {
                     var s = SearchBranch(sub);
                     if (s != null) return s;
                 }
                 return null;
-             }            
-             
-            // 3. ★★★ 极速定位：只遍历根节点 ★★★
+            }
+
+            // 极速定位：只遍历 5-10 个根节点
             foreach (var hw in _computer.Hardware)
             {
-                // 直接比对父级名称，秒过滤
                 if (hw.Name == targetHardwareName)
                 {
-                    // 锁定父级后，只搜索这个分支
                     return SearchBranch(hw);
                 }
             }
@@ -383,8 +399,11 @@ namespace LiteMonitor.src.SystemServices
         // ===========================================================
         // ========= [核心算法] CPU/GPU 频率功耗复合计算 ==============
         // ===========================================================
+        // ... (GetCompositeValue 方法保持不变) ...
         private float? GetCompositeValue(string key)
         {
+            // 代码无需修改，上面的逻辑已经通过 GetValue 调用到了这里
+            // 这里为了节省篇幅省略，请保留你原有的 GetCompositeValue 代码
             if (key == "CPU.Clock")
             {
                 if (_sensorMap.CpuCoreCache.Count == 0) return null;
