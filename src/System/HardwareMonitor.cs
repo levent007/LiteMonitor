@@ -287,7 +287,7 @@ namespace LiteMonitor.src.SystemServices
 
             var list = Instance._computer.Hardware
                 .Where(h => h.HardwareType == HardwareType.Network)
-                .Select(h => UIUtils.Intern(h.Name)) // 强制驻留
+                .Select(h => h.Name)
                 .Distinct()
                 .ToList();
             
@@ -303,7 +303,7 @@ namespace LiteMonitor.src.SystemServices
 
             var list = Instance._computer.Hardware
                 .Where(h => h.HardwareType == HardwareType.Storage)
-                .Select(h => UIUtils.Intern(h.Name)) // 强制驻留
+                .Select(h => h.Name)
                 .Distinct()
                 .ToList();
 
@@ -342,7 +342,7 @@ namespace LiteMonitor.src.SystemServices
                         {
                             // 格式化名称：传感器名[硬件名] 
                             // ★★★ 强制驻留：确保生成的 "Fan #1 [SuperIO]" 只在内存存一份 ★★★
-                            string fullName = UIUtils.Intern($"{s.Name} [{hw.Name}]");
+                            string fullName = $"{s.Name} [{hw.Name}]";
                             list.Add(fullName);
                         }
                     }
