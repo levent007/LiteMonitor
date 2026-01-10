@@ -32,6 +32,10 @@ namespace LiteMonitor.src.SystemServices
         public ISensor? CpuBusSpeedSensor { get; private set; }
 
         private DateTime _lastMapBuild = DateTime.MinValue;
+        
+        // ★★★ [优化 1] 新增：记录上次构建时的硬件数量，用于检测异步加载进度 ★★★
+        private int _lastHardwareCount = 0;
+
         private readonly object _lock = new object();
         
         // ★★★ [新增] 配置引用 ★★★
@@ -39,8 +43,12 @@ namespace LiteMonitor.src.SystemServices
 
         public void EnsureFresh(Computer computer, Settings cfg) // ★ 签名修改
         {
-            if ((DateTime.Now - _lastMapBuild).TotalMinutes > 10)
+            // ★★★ [优化 2] 核心逻辑修改：如果 "超时" 或 "硬件数量变动(说明后台刚加载出新硬件)" 则重建 ★★★
+            if ((DateTime.Now - _lastMapBuild).TotalMinutes > 10 || 
+                computer.Hardware.Count != _lastHardwareCount)
+            {
                 Rebuild(computer, cfg);
+            }
         }
 
         public void Clear()
@@ -51,6 +59,7 @@ namespace LiteMonitor.src.SystemServices
                 CpuCoreCache.Clear();
                 CachedGpu = null;
                 CpuBusSpeedSensor = null;
+                _lastHardwareCount = 0; // 重置计数
             }
         }
 
@@ -212,7 +221,10 @@ namespace LiteMonitor.src.SystemServices
                 CpuCoreCache = newCpuCache;
                 CachedGpu = newGpu;
                 CpuBusSpeedSensor = newBusSensor; // ★ 更新 Bus Sensor 缓存
+                
                 _lastMapBuild = DateTime.Now;
+                // ★★★ [优化 3] 记录当前的硬件数量 ★★★
+                _lastHardwareCount = computer.Hardware.Count;
             }
         }
 
