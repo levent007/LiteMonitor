@@ -64,12 +64,17 @@ namespace LiteMonitor.src.UI.Controls
         {
             if (node == null || node.Bounds.Height <= 0) return;
             
-            // 计算需要重绘的右侧区域宽度
-            // 包含：Value列 + Max列 + 右边距 + 间距修正 (25 + 20)
-            int refreshWidth = UIUtils.S(ColValueWidth + ColMaxWidth + RightMargin + 25 + 20); 
+            // 计算需要重绘的宽度 (必须 >= OnDrawNode 中定义的 rightZoneWidth)
+            // ColMaxWidth(70) + ColValueWidth(70) + RightMargin(6) + Spacing(25) + Padding(10) ≈ 181
+            // 我们给它一个稍微宽裕一点的整数，确保覆盖所有数值，但绝对不要碰到文字
+            int refreshWidth = UIUtils.S(ColMaxWidth + ColValueWidth + RightMargin + 40); 
+            
             int safeWidth = this.ClientSize.Width;
+            if (refreshWidth > safeWidth) refreshWidth = safeWidth;
 
+            // 计算脏矩形
             Rectangle dirtyRect = new Rectangle(safeWidth - refreshWidth, node.Bounds.Y, refreshWidth, node.Bounds.Height);
+            
             this.Invalidate(dirtyRect);
         }
 
@@ -103,103 +108,118 @@ namespace LiteMonitor.src.UI.Controls
             }
         }
 
+        // ★★★ 新增：右键点击自动选中节点 ★★★
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            // 如果是右键，先尝试找到鼠标位置的节点并选中它
+            if (e.Button == MouseButtons.Right)
+            {
+                var node = this.GetNodeAt(e.X, e.Y);
+                if (node != null)
+                {
+                    this.SelectedNode = node;
+                }
+            }
+            base.OnMouseDown(e);
+        }
+
         protected override void OnDrawNode(DrawTreeNodeEventArgs e)
         {
+            // 1. 基础防呆检查
             if (e.Bounds.Height <= 0 || e.Bounds.Width <= 0) return;
 
             var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.HighQuality;
+            // 恢复高质量绘图设置
+            g.SmoothingMode = SmoothingMode.HighQuality; 
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             int w = this.ClientSize.Width; 
             Rectangle fullRow = new Rectangle(0, e.Bounds.Y, w, this.ItemHeight);
 
-            // 判断状态
+            // 2. 绘制背景 (处理选中/悬停)
             bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
-            // 使用 _hoverNode 替代 e.State.Hot，效果更稳
             bool isHot = (e.Node == _hoverNode); 
 
-            // 绘制背景
             if (isSelected) g.FillRectangle(_selectBgBrush, fullRow);
             else if (isHot) g.FillRectangle(_hoverBrush, fullRow);
-            else g.FillRectangle(Brushes.White, fullRow);
+            else g.FillRectangle(Brushes.White, fullRow); // 显式擦除背景
 
-            // 分割线
-            // ★★★ 修改：选中时不画分割线，解决“蓝色底色上面有个线条”的问题 ★★★
             if (!isSelected)
-            {
                 g.DrawLine(_linePen, 0, fullRow.Bottom - 1, w, fullRow.Bottom - 1);
-            }
 
-            // --- 坐标计算 (左侧图标) ---
-            // 基础缩进量
+            // 3. 计算关键坐标
             int baseIndent = e.Node.Level * UIUtils.S(20);
-            // 图标区域 (在文本之前)
             Rectangle chevronRect = new Rectangle(baseIndent + UIUtils.S(5), fullRow.Y, UIUtils.S(IconWidth), fullRow.Height);
 
-            // --- 坐标计算 (右侧数值) ---
-            int xBase = w - UIUtils.S(RightMargin); 
-            
-            // Max 列区域
-            int xMax = xBase - UIUtils.S(25) - UIUtils.S(ColMaxWidth);
-            Rectangle maxRect = new Rectangle(xMax, fullRow.Y, UIUtils.S(ColMaxWidth), fullRow.Height);
+            // --- 定义“右侧禁区” (数值列占用区域) ---
+            // Max列 + Value列 + 间距 + 右边距
+            int rightZoneWidth = UIUtils.S(ColMaxWidth + ColValueWidth + RightMargin + 25); 
+            int rightZoneStart = w - rightZoneWidth;
 
-            // Value 列区域 (在 Max 左侧)
+            // 计算具体的列坐标
+            int xMax = w - UIUtils.S(RightMargin) - UIUtils.S(25) - UIUtils.S(ColMaxWidth);
+            Rectangle maxRect = new Rectangle(xMax, fullRow.Y, UIUtils.S(ColMaxWidth), fullRow.Height);
+            
             int xValue = xMax - UIUtils.S(20) - UIUtils.S(ColValueWidth);
             Rectangle valRect = new Rectangle(xValue, fullRow.Y, UIUtils.S(ColValueWidth), fullRow.Height);
 
-            // 3. 绘制折叠图标 (如果有子节点，画在左侧)
-            if (e.Node.Nodes.Count > 0)
-            {
-                DrawChevron(g, chevronRect, e.Node.IsExpanded);
-            }
+            // 4. 绘制折叠图标
+            if (e.Node.Nodes.Count > 0) DrawChevron(g, chevronRect, e.Node.IsExpanded);
 
-            // 4. 绘制数值 (仅传感器)
+            // 5. 绘制右侧数值 (仅传感器)
             if (e.Node.Tag is ISensor sensor)
             {
-                // Max (深灰色) - SingleLine
-                // ★★★ 修改：颜色改为 DimGray (深灰) ★★★
                 string maxStr = FormatValue(sensor.Max, sensor.SensorType);
                 TextRenderer.DrawText(g, maxStr, _baseFont, maxRect, Color.DimGray, 
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
 
-                // Value (彩色) - SingleLine
                 string valStr = FormatValue(sensor.Value, sensor.SensorType);
                 Color valColor = GetColorByType(sensor.SensorType);
                 TextRenderer.DrawText(g, valStr, _baseFont, valRect, valColor, 
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
             }
 
-            // 5. 绘制文本
+            // 6. 绘制左侧文本 (核心修复)
             Color txtColor;
             Font font;
 
-            if (e.Node.Tag is IHardware) 
-            {
-                font = _boldFont;
-                txtColor = Color.Black;
-            }
-            else if (e.Node.Tag is ISensor)
-            {
-                font = _baseFont;
-                txtColor = Color.FromArgb(00, 00, 00); 
-            }
-            else 
-            {
-                font = _boldFont;
-                txtColor = Color.FromArgb(30, 30, 30); 
-            }
+            // 样式选择
+            if (e.Node.Tag is IHardware) { font = _boldFont; txtColor = Color.Black; }
+            else if (e.Node.Tag is ISensor) { font = _baseFont; txtColor = Color.Black; }
+            else { font = _boldFont; txtColor = Color.FromArgb(30, 30, 30); }
 
-            // 文本起始位置在图标之后
             int textStartX = chevronRect.Right + UIUtils.S(5);
-            // 文本宽度截止到 Value 列之前
-            int textWidth = xValue - textStartX - UIUtils.S(10); 
-            Rectangle textRect = new Rectangle(textStartX, fullRow.Y, textWidth, fullRow.Height);
-            
-            TextRenderer.DrawText(g, e.Node.Text, font, textRect, txtColor, 
-                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
-        }
 
+            // ★★★ 核心修复逻辑 ★★★
+            // ★★★ 修复开始 ★★★
+            Rectangle textRect;
+            // 基础 Flag：垂直居中 | 左对齐 | 单行 | 不显示前缀符号(&)
+            TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+
+            // 区分处理
+            if (e.Node.Tag is ISensor)
+            {
+                // 传感器：必须避让右侧数值区，并在不够时显示省略号
+                int maxTextWidth = rightZoneStart - textStartX - UIUtils.S(10);
+                if (maxTextWidth < 10) maxTextWidth = 10;
+                
+                textRect = new Rectangle(textStartX, fullRow.Y, maxTextWidth, fullRow.Height);
+                
+                // ★ 关键：只有传感器才加省略号 ★
+                flags |= TextFormatFlags.EndEllipsis; 
+            }
+            else
+            {
+                // 硬件标题：给它无限宽度
+                // ★ 关键：这里绝对不能加 EndEllipsis，否则又会乱码 ★
+                int maxTextWidth = w - UIUtils.S(RightMargin) - textStartX;
+                textRect = new Rectangle(textStartX, fullRow.Y, maxTextWidth, fullRow.Height);
+            }
+            
+            // 使用动态计算的 flags 绘制
+            TextRenderer.DrawText(g, e.Node.Text, font, textRect, txtColor, flags);
+            // ★★★ 修复结束 ★★★
+        }
         private void DrawChevron(Graphics g, Rectangle rect, bool expanded)
         {
             int cx = rect.X + rect.Width / 2;
@@ -243,6 +263,7 @@ namespace LiteMonitor.src.UI.Controls
                 case SensorType.Clock: return v >= 1000 ? $"{v/1000:F1} GHz" : $"{v:F0} MHz";
                 case SensorType.Temperature: return $"{v:F0} °C";
                 case SensorType.Load: return $"{v:F1} %";
+                case SensorType.Level: return $"{v:F1} %";
                 case SensorType.Fan: return $"{v:F0} RPM";
                 case SensorType.Power: return $"{v:F1} W";
                 case SensorType.Data: return $"{v:F1} GB";

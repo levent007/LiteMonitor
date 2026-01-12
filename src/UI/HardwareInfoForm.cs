@@ -44,18 +44,40 @@ namespace LiteMonitor.src.UI
             _headerPanel.Paint += HeaderPanel_Paint;
             _headerPanel.Resize += (s, e) => _headerPanel.Invalidate();
 
+            // --- 这里的菜单定义代码需要完全替换 ---
             _tree = new LiteTreeView { Dock = DockStyle.Fill };
             
             var cms = new ContextMenuStrip();
-            cms.Items.Add(T("Copy ID", "复制传感器ID"), null, (s, e) => CopyInfo("ID"));
-            cms.Items.Add(T("Copy Value", "复制数值"), null, (s, e) => CopyInfo("Value"));
+            
+            // 1. 定义菜单项 (保留引用以便后续控制显示)
+            var itemCopyName = cms.Items.Add(T("Copy Name", "复制名称"), null, (s, e) => CopyInfo("Name"));
+            var itemCopyId = cms.Items.Add(T("Copy ID", "复制传感器ID"), null, (s, e) => CopyInfo("ID"));
+            var itemCopyVal = cms.Items.Add(T("Copy Value", "复制数值"), null, (s, e) => CopyInfo("Value"));
+            
             cms.Items.Add(new ToolStripSeparator());
             cms.Items.Add(T("Expand All", "全部展开"), null, (s, e) => _tree.ExpandAll());
-            // ★★★ 修改这里：去掉 foreach 循环，只保留 CollapseAll ★★★
-            cms.Items.Add(T("Collapse All", "全部折叠"), null, (s, e) => {
-                _tree.CollapseAll();
-                // 删除原来的 foreach(TreeNode n in _tree.Nodes) n.Expand(); 这一行
-            });
+            cms.Items.Add(T("Collapse All", "全部折叠"), null, (s, e) => _tree.CollapseAll());
+
+            // 2. ★★★ 新增：Opening 事件，根据选中节点的类型动态显示/隐藏菜单项 ★★★
+            cms.Opening += (s, e) => 
+            {
+                var node = _tree.SelectedNode;
+                if (node == null)
+                {
+                    e.Cancel = true; // 没选中东西就不显示菜单
+                    return;
+                }
+
+                bool isSensor = node.Tag is ISensor;
+                
+                // 任何节点都可以复制名称
+                itemCopyName.Visible = true;
+                
+                // 只有传感器才有 ID 和 Value
+                itemCopyId.Visible = isSensor;
+                itemCopyVal.Visible = isSensor;
+            };
+
             _tree.ContextMenuStrip = cms;
 
             this.Controls.Add(_tree);
@@ -157,7 +179,9 @@ namespace LiteMonitor.src.UI
         private void AddHardwareNode(TreeNodeCollection parentNodes, IHardware hw, string filter, bool isSearch, bool isFirstHardware)
         {
             string typeStr = GetHardwareTypeString(hw.HardwareType);
-            string label = $"{typeStr} {hw.Name}";
+            // ★★★ 替换这里：使用强力白名单清洗 ★★★
+            string cleanName = SanitizeHardwareName(hw.Name);
+            string label = $"{typeStr} {cleanName}";
 
             var hwNode = new TreeNode(label) { Tag = hw };
             bool hasContent = false;
@@ -167,7 +191,9 @@ namespace LiteMonitor.src.UI
             {
                 string typeIcon = GetSensorTypeString(group.Key);
                 string typeName = $"{typeIcon} {group.Key}"; 
-                var typeNode = new TreeNode(typeName); 
+                
+                // ★★★ 修改：创建节点时，把 SensorType (group.Key) 存入 Tag ★★★
+                var typeNode = new TreeNode(typeName) { Tag = group.Key };
 
                 bool groupHasMatch = false;
                 foreach (var s in group)
@@ -217,7 +243,33 @@ namespace LiteMonitor.src.UI
         private void CopyInfo(string type)
         {
             var node = _tree.SelectedNode;
-            if (node?.Tag is ISensor s)
+            if (node == null) return;
+
+            if (type == "Name")
+            {
+                // ★★★ 智能复制逻辑 (升级版) ★★★
+                if (node.Tag is IHardware hw)
+                {
+                    // 1. 硬件/子硬件：使用与显示逻辑一致的“强力清洗”
+                    Clipboard.SetText(SanitizeHardwareName(hw.Name));
+                }
+                else if (node.Tag is ISensor s)
+                {
+                    // 2. 传感器：直接复制名称 (如 "CPU Core #1")
+                    Clipboard.SetText(s.Name ?? "");
+                }
+                else if (node.Tag is SensorType st)
+                {
+                    // 3. ★新增★ 类型分组 (如 "Temperature")：只复制纯文本名称，不带 Emoji
+                    Clipboard.SetText(st.ToString()); 
+                }
+                else
+                {
+                    // 4. 其他情况：复制显示文本 (兜底)
+                    Clipboard.SetText(node.Text ?? "");
+                }
+            }
+            else if (node.Tag is ISensor s)
             {
                 if (type == "Value") Clipboard.SetText(s.Value?.ToString() ?? "");
                 else if (type == "ID") Clipboard.SetText(s.Identifier.ToString());
@@ -241,9 +293,12 @@ namespace LiteMonitor.src.UI
                 case HardwareType.GpuIntel: return T("🎮 [GPU]", "🎮 [显卡]");
                 case HardwareType.Memory: return T("💾 [Memory]", "💾 [内存]");
                 case HardwareType.Motherboard: return T("⌨ [Motherboard]", "⌨ [主板]");
-                case HardwareType.Storage: return T("📀 [Storage]", "📀 [硬盘]");
+                case HardwareType.Storage: return T("💽 [Storage]", "💽 [硬盘]");
                 case HardwareType.Network: return T("🌐 [Network]", "🌐 [网卡]"); 
-                default: return "🟢";
+                case HardwareType.SuperIO: return T("📟 [SuperIO]", "📟 [IO芯片]");
+                // 可选：如果遇到水冷控制器等
+                case HardwareType.Cooler: return T("❄️ [Cooler]", "❄️ [散热器]");
+                default: return $"🟢 [{type}]";
             }
         }
         private string GetSensorTypeString(SensorType type)
@@ -251,7 +306,7 @@ namespace LiteMonitor.src.UI
             switch (type) {
                 case SensorType.Temperature: return T("🌡️ [Temperature]", "🌡️ [温度]");
                 case SensorType.Load: return T("⌛ [Load]", "⌛ [负载]");
-                case SensorType.Fan: return T("🌪️ [Fan]", "🌪️ [风扇]");
+                case SensorType.Fan: return T("🌀 [Fan]", "🌀 [风扇]");
                 case SensorType.Power: return T("⚡ [Power]", "⚡ [功耗]");
                 case SensorType.Clock: return T("⏱️ [Clock]", "⏱️ [频率]");
                 case SensorType.Control: return T("🎛️ [Control]", "🎛️ [控制]");
@@ -259,8 +314,38 @@ namespace LiteMonitor.src.UI
                 case SensorType.Data: return T("📈 [Data]", "📈 [数据]");
                 case SensorType.SmallData: return T("📶 [SmallData]", "📶 [小型数据]");
                 case SensorType.Throughput: return T("🚀 [Throughput]", "🚀 [吞吐量]");
-                default: return "🟢";
+                // ★★★ 新增以下三项 ★★★
+                case SensorType.Level: return T("📉 [Level]", "📉 [剩余/寿命]"); // 用于 SSD 寿命或油箱液位
+                case SensorType.Factor: return T("🔢 [Factor]", "🔢 [系数]");      // 用于写入放大系数等
+                case SensorType.Timing: return T("⏱️ [Timing]", "⏱️ [时序]");
+                default: return $"🟢 [{type}]";
             }
+        }
+
+        // 强力清洗：只保留看着像“正常名字”的字符
+        private string SanitizeHardwareName(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return "";
+
+            // 1. 过滤：只保留 字母、数字、标点符号、空格
+            // 内存名称里通常只有这些：A-Z a-z 0-9 - _ ( ) [ ] . 空格
+            char[] cleanChars = input.Where(c => 
+                char.IsLetterOrDigit(c) || 
+                c == ' ' || c == '-' || c == '_' || c == '.' || 
+                c == '(' || c == ')' || c == '[' || c == ']' ||
+                c == '#' || c == '/' || c == '+'  // 允许 #1, Ddr4/5 等符号
+            ).ToArray();
+
+            string result = new string(cleanChars).Trim();
+
+            // 2. 兜底：如果清洗完只剩下一堆怪字符或者太短，说明这次读取彻底废了
+            // 这种情况下，与其显示 "A??>}", 不如显示一个通用的 "Unknown Memory"
+            if (result.Length < 2) return "Generic Hardware"; 
+
+            // 3. 移除可能存在的连续空格
+            while (result.Contains("  ")) result = result.Replace("  ", " ");
+
+            return result;
         }
     }
 }
