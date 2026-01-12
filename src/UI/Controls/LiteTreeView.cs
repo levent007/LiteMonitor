@@ -17,6 +17,9 @@ namespace LiteMonitor.src.UI.Controls
         private Font _baseFont;
         private Font _boldFont;
 
+        // ★★★ 新增：用于手动追踪悬停节点，解决“触角效果没生效”的问题 ★★★
+        private TreeNode _hoverNode;
+
         // 布局参数
         public int ColValueWidth { get; set; } = 70;  
         public int ColMaxWidth { get; set; } = 70;
@@ -62,12 +65,42 @@ namespace LiteMonitor.src.UI.Controls
             if (node == null || node.Bounds.Height <= 0) return;
             
             // 计算需要重绘的右侧区域宽度
-            // 包含：Value列 + Max列 + 右边距 + 你在 OnDrawNode 增加的间距 (25 + 20)
+            // 包含：Value列 + Max列 + 右边距 + 间距修正 (25 + 20)
             int refreshWidth = UIUtils.S(ColValueWidth + ColMaxWidth + RightMargin + 25 + 20); 
             int safeWidth = this.ClientSize.Width;
 
             Rectangle dirtyRect = new Rectangle(safeWidth - refreshWidth, node.Bounds.Y, refreshWidth, node.Bounds.Height);
             this.Invalidate(dirtyRect);
+        }
+
+        // ★★★ 新增：鼠标移动时手动触发重绘，确保悬停效果灵敏 ★★★
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            TreeNode currentNode = this.GetNodeAt(e.Location);
+            if (currentNode != _hoverNode)
+            {
+                // 重绘旧的悬停节点（取消高亮）
+                if (_hoverNode != null && _hoverNode.Bounds.Height > 0) 
+                    this.Invalidate(new Rectangle(0, _hoverNode.Bounds.Y, this.Width, _hoverNode.Bounds.Height));
+                
+                _hoverNode = currentNode;
+
+                // 重绘新的悬停节点（显示高亮）
+                if (_hoverNode != null && _hoverNode.Bounds.Height > 0)
+                    this.Invalidate(new Rectangle(0, _hoverNode.Bounds.Y, this.Width, _hoverNode.Bounds.Height));
+            }
+        }
+
+        // ★★★ 新增：鼠标离开控件时清除悬停状态 ★★★
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (_hoverNode != null)
+            {
+                this.Invalidate(new Rectangle(0, _hoverNode.Bounds.Y, this.Width, _hoverNode.Bounds.Height));
+                _hoverNode = null;
+            }
         }
 
         protected override void OnDrawNode(DrawTreeNodeEventArgs e)
@@ -81,13 +114,22 @@ namespace LiteMonitor.src.UI.Controls
             int w = this.ClientSize.Width; 
             Rectangle fullRow = new Rectangle(0, e.Bounds.Y, w, this.ItemHeight);
 
+            // 判断状态
+            bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
+            // 使用 _hoverNode 替代 e.State.Hot，效果更稳
+            bool isHot = (e.Node == _hoverNode); 
+
             // 绘制背景
-            if ((e.State & TreeNodeStates.Selected) != 0) g.FillRectangle(_selectBgBrush, fullRow);
-            else if ((e.State & TreeNodeStates.Hot) != 0) g.FillRectangle(_hoverBrush, fullRow);
+            if (isSelected) g.FillRectangle(_selectBgBrush, fullRow);
+            else if (isHot) g.FillRectangle(_hoverBrush, fullRow);
             else g.FillRectangle(Brushes.White, fullRow);
 
             // 分割线
-            g.DrawLine(_linePen, 0, fullRow.Bottom - 1, w, fullRow.Bottom - 1);
+            // ★★★ 修改：选中时不画分割线，解决“蓝色底色上面有个线条”的问题 ★★★
+            if (!isSelected)
+            {
+                g.DrawLine(_linePen, 0, fullRow.Bottom - 1, w, fullRow.Bottom - 1);
+            }
 
             // --- 坐标计算 (左侧图标) ---
             // 基础缩进量
@@ -99,12 +141,10 @@ namespace LiteMonitor.src.UI.Controls
             int xBase = w - UIUtils.S(RightMargin); 
             
             // Max 列区域
-            // 同步修改：使用 25 的间距
             int xMax = xBase - UIUtils.S(25) - UIUtils.S(ColMaxWidth);
             Rectangle maxRect = new Rectangle(xMax, fullRow.Y, UIUtils.S(ColMaxWidth), fullRow.Height);
 
             // Value 列区域 (在 Max 左侧)
-            // 同步修改：使用 20 的间距
             int xValue = xMax - UIUtils.S(20) - UIUtils.S(ColValueWidth);
             Rectangle valRect = new Rectangle(xValue, fullRow.Y, UIUtils.S(ColValueWidth), fullRow.Height);
 
@@ -117,9 +157,10 @@ namespace LiteMonitor.src.UI.Controls
             // 4. 绘制数值 (仅传感器)
             if (e.Node.Tag is ISensor sensor)
             {
-                // Max (灰色) - SingleLine
+                // Max (深灰色) - SingleLine
+                // ★★★ 修改：颜色改为 DimGray (深灰) ★★★
                 string maxStr = FormatValue(sensor.Max, sensor.SensorType);
-                TextRenderer.DrawText(g, maxStr, _baseFont, maxRect, Color.Gray, 
+                TextRenderer.DrawText(g, maxStr, _baseFont, maxRect, Color.DimGray, 
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
 
                 // Value (彩色) - SingleLine
@@ -187,7 +228,8 @@ namespace LiteMonitor.src.UI.Controls
                 case SensorType.Load: return Color.FromArgb(0, 100, 0); 
                 case SensorType.Power: return Color.Purple;
                 case SensorType.Clock: return Color.DarkBlue;
-                default: return Color.Black;
+                // ★★★ 修改：默认颜色改为绿色 ★★★
+                default: return Color.FromArgb(34, 139, 34); // ForestGreen
             }
         }
 
