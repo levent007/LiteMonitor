@@ -429,7 +429,7 @@ namespace LiteMonitor
 
 
             // --- [新增代码开始] ---
-            var btnHardware = new ToolStripMenuItem(LanguageManager.T("Hardware Info")); // 记得在多语言json里加 key，或者直接写死中文 "硬件检测"
+            var btnHardware = new ToolStripMenuItem(LanguageManager.T("Menu.HardwareInfo")); 
             btnHardware.Image = null; // 或者找个图标
             btnHardware.Click += (s, e) => 
             {

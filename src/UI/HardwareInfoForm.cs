@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using LibreHardwareMonitor.Hardware;
+using LiteMonitor;
 using LiteMonitor.src.SystemServices;
 using LiteMonitor.src.Core;
 using LiteMonitor.src.UI.Controls;
@@ -13,11 +14,15 @@ namespace LiteMonitor.src.UI
     {
         private LiteTreeView _tree;
         private System.Windows.Forms.Timer _refreshTimer;
-        private Panel _headerPanel; 
+        private Panel _headerPanel;
+        
+        private Settings _settings = Settings.Load();
+        
+        private string T(string en, string zh) => _settings.Language.ToLower().StartsWith("zh") ? zh : en; 
 
         public HardwareInfoForm()
         {
-            this.Text = "Hardware Inspector";
+            this.Text = T("LiteMonitor - Hardware Info", "LiteMonitor - 硬件详细信息");
             this.Size = new Size(UIUtils.S(600), UIUtils.S(750)); // 稍微加宽一点
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.White;
@@ -29,7 +34,7 @@ namespace LiteMonitor.src.UI
                 Dock = DockStyle.Fill, 
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Microsoft YaHei UI", 9f), 
-                PlaceholderText = "Search..." 
+                PlaceholderText = T("Search sensor name...", "搜索传感器名称...") 
             };
             searchInput.TextChanged += (s, e) => RebuildTree(searchInput.Text.Trim());
             pnlToolbar.Controls.Add(searchInput);
@@ -42,12 +47,12 @@ namespace LiteMonitor.src.UI
             _tree = new LiteTreeView { Dock = DockStyle.Fill };
             
             var cms = new ContextMenuStrip();
-            cms.Items.Add("Copy Value", null, (s, e) => CopyInfo("Value"));
-            cms.Items.Add("Copy ID", null, (s, e) => CopyInfo("ID"));
+            cms.Items.Add(T("Copy Value", "复制数值"), null, (s, e) => CopyInfo("Value"));
+            cms.Items.Add(T("Copy ID", "复制ID"), null, (s, e) => CopyInfo("ID"));
             cms.Items.Add(new ToolStripSeparator());
-            cms.Items.Add("Expand All", null, (s, e) => _tree.ExpandAll());
+            cms.Items.Add(T("Expand All", "全部展开"), null, (s, e) => _tree.ExpandAll());
             // ★★★ 修改这里：去掉 foreach 循环，只保留 CollapseAll ★★★
-            cms.Items.Add("Collapse All", null, (s, e) => {
+            cms.Items.Add(T("Collapse All", "全部折叠"), null, (s, e) => {
                 _tree.CollapseAll();
                 // 删除原来的 foreach(TreeNode n in _tree.Nodes) n.Expand(); 这一行
             });
@@ -110,18 +115,18 @@ namespace LiteMonitor.src.UI
 
             // 2. 绘制 "Sensor" (左侧)
             // 使用 Rectangle 而不是 Point，并垂直居中，防止位置跑偏
-            Rectangle titleRect = new Rectangle(10, 0, xValueLeft - 10, _headerPanel.Height);
-            TextRenderer.DrawText(g, " Sensor", font, titleRect, Color.FromArgb(80, 80, 80), 
+            Rectangle titleRect = new Rectangle(30, 0, xValueLeft - 10, _headerPanel.Height);
+            TextRenderer.DrawText(g, " " + T("Sensor", "硬件&传感器"), font, titleRect, Color.FromArgb(80, 80, 80), 
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
 
             // 3. 绘制 "Max"
             Rectangle maxRect = new Rectangle(xMaxLeft, 0, colMaxW, _headerPanel.Height);
-            TextRenderer.DrawText(g, "Max", font, maxRect, Color.FromArgb(80, 80, 80), 
+            TextRenderer.DrawText(g, T("Max", "最大值"), font, maxRect, Color.FromArgb(80, 80, 80), 
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
 
             // 4. 绘制 "Value"
             Rectangle valRect = new Rectangle(xValueLeft, 0, colValW, _headerPanel.Height);
-            TextRenderer.DrawText(g, "Value", font, valRect, Color.FromArgb(80, 80, 80), 
+            TextRenderer.DrawText(g, T("Value", "数值"), font, valRect, Color.FromArgb(80, 80, 80), 
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.SingleLine);
             
             font.Dispose();
@@ -135,7 +140,7 @@ namespace LiteMonitor.src.UI
             var computer = HardwareMonitor.Instance?.ComputerInstance;
             if (computer == null || computer.Hardware.Count == 0) 
             {
-                _tree.Nodes.Add(new TreeNode("Initializing..."));
+                _tree.Nodes.Add(new TreeNode(T("Initializing...", "初始化中...")));
                 _tree.EndUpdate();
                 return;
             }
@@ -150,8 +155,7 @@ namespace LiteMonitor.src.UI
         private void AddHardwareNode(TreeNodeCollection parentNodes, IHardware hw, string filter, bool isSearch)
         {
             string typeStr = GetHardwareTypeString(hw.HardwareType);
-            string icon = GetHardwareIcon(hw.HardwareType);
-            string label = $"{icon} {typeStr} {hw.Name}";
+            string label = $"{typeStr} {hw.Name}";
 
             var hwNode = new TreeNode(label) { Tag = hw };
             bool hasContent = false;
@@ -159,7 +163,7 @@ namespace LiteMonitor.src.UI
             var groups = hw.Sensors.GroupBy(s => s.SensorType).OrderBy(g => g.Key);
             foreach (var group in groups)
             {
-                string typeIcon = GetSensorTypeIcon(group.Key);
+                string typeIcon = GetSensorTypeString(group.Key);
                 string typeName = $"{typeIcon} {group.Key}"; 
                 var typeNode = new TreeNode(typeName); 
 
@@ -225,46 +229,33 @@ namespace LiteMonitor.src.UI
             this.Dispose();
         }
 
-        private string GetHardwareIcon(HardwareType type)
-        {
-            switch (type) {
-                case HardwareType.Cpu: return "💻"; 
-                case HardwareType.GpuNvidia: return "🎮";
-                case HardwareType.GpuAmd: return "🎮";
-                case HardwareType.GpuIntel: return "🎮";
-                case HardwareType.Memory: return "🧠"; 
-                case HardwareType.Motherboard: return "🔌"; 
-                case HardwareType.Storage: return "💾"; 
-                case HardwareType.Network: return "🌐"; 
-                default: return "📦";
-            }
-        }
         private string GetHardwareTypeString(HardwareType type)
         {
             switch (type) {
-                case HardwareType.Cpu: return "[处理器]";
+                case HardwareType.Cpu: return T("💻 [CPU]", "💻 [处理器]");
                 case HardwareType.GpuNvidia:
                 case HardwareType.GpuAmd:
-                case HardwareType.GpuIntel: return "[显卡]";
-                case HardwareType.Memory: return "[内存]";
-                case HardwareType.Motherboard: return "[主板]";
-                case HardwareType.Storage: return "[硬盘]";
-                case HardwareType.Network: return "[网卡]";
-                default: return "";
+                case HardwareType.GpuIntel: return T("🎮 [GPU]", "🎮 [显卡]");
+                case HardwareType.Memory: return T("💾 [Memory]", "💾 [内存]");
+                case HardwareType.Motherboard: return T("⌨ [Motherboard]", "⌨ [主板]");
+                case HardwareType.Storage: return T("📀 [Storage]", "📀 [硬盘]");
+                case HardwareType.Network: return T("🌐 [Network]", "🌐 [网卡]"); 
+                default: return "🟢";
             }
         }
-        private string GetSensorTypeIcon(SensorType type)
+        private string GetSensorTypeString(SensorType type)
         {
             switch (type) {
-                case SensorType.Temperature: return "🌡️";
-                case SensorType.Load: return "📊";
-                case SensorType.Fan: return "🌪️";
-                case SensorType.Power: return "⚡";
-                case SensorType.Clock: return "⏱️";
-                case SensorType.Control: return "🎛️";
-                case SensorType.Voltage: return "🔋";
-                case SensorType.Data: return "🔢";
-                default: return "•";
+                case SensorType.Temperature: return T("🌡️ [Temperature]", "🌡️ [温度]");
+                case SensorType.Load: return T("📊 [Load]", "📊 [负载]");
+                case SensorType.Fan: return T("🌪️ [Fan]", "🌪️ [风扇]");
+                case SensorType.Power: return T("⚡ [Power]", "⚡ [功耗]");
+                case SensorType.Clock: return T("⏱️ [Clock]", "⏱️ [频率]");
+                case SensorType.Control: return T("🎛️ [Control]", "🎛️ [控制]");
+                case SensorType.Voltage: return T("🔋 [Voltage]", "🔋 [电压]");
+                case SensorType.Data: return T("📈 [Data]", "📈 [数据]");
+                case SensorType.Throughput: return T("🚀 [Throughput]", "🚀 [吞吐量]");
+                default: return "🟢";
             }
         }
     }
