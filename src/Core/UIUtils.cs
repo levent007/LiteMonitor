@@ -108,82 +108,153 @@ namespace LiteMonitor.src.Core
         }
 
         // ============================================================
-        // 核心：通用数值格式化 (对外入口)
+        // ★★★ 新增：单位处理核心逻辑 ★★★
         // ============================================================
-        public static string FormatValue(string key, float? raw)
+        
+        /// <summary>
+        /// 获取最终显示的单位字符串
+        /// </summary>
+        /// <param name="key">监控项Key</param>
+        /// <param name="calculatedUnit">系统计算出的动态单位(如 MB, RPM)</param>
+        /// <param name="userFormat">用户配置的格式字符串</param>
+        public static string GetDisplayUnit(string key, string calculatedUnit, string userFormat)
         {
-            // ★★★ 优化：消除 ToUpperInvariant，改用 IndexOf 忽略大小写 ★★★
-            // string k = key.ToUpperInvariant();
+            // 1. Auto 模式 (null 或 "Auto") -> 使用系统默认逻辑
+            if (string.IsNullOrEmpty(userFormat) || userFormat.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            {
+                // 默认给速率类添加 /s
+                if (key.StartsWith("NET") || key.StartsWith("DISK")) return calculatedUnit + "/s";
+                return calculatedUnit;
+            }
+
+            // 2. Hide 模式 (空字符串) -> 不显示单位
+            if (userFormat == "") return "";
+
+            // 3. Custom 模式 (处理占位符 {u})
+            if (userFormat.Contains("{u}"))
+            {
+                return userFormat.Replace("{u}", calculatedUnit);
+            }
+
+            // 4. Static 模式 (用户写死，如 "Hz")
+            return userFormat;
+        }
+
+        /// <summary>
+        /// [核心重构] 分离数值与单位，返回 (数值文本, 原始单位)
+        /// </summary>
+        public static (string valStr, string unitStr) FormatValueParts(string key, float? raw)
+        {
             float v = raw ?? 0.0f;
 
-            // 1. 内存/显存特殊显示逻辑 (必须放在第一位)
+            // 1. MEM/VRAM 特殊逻辑
             if (key.IndexOf("MEM", StringComparison.OrdinalIgnoreCase) >= 0 || 
                 key.IndexOf("VRAM", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                // 1. 读取配置 (注意：此处 Settings.Load() 现在是单例极速模式)
                 var cfg = Settings.Load();
-
-                // 2. 判断模式：如果是 1 (已用容量)
-                if (cfg.MemoryDisplayMode == 1)
+                if (cfg.MemoryDisplayMode == 1) // 已用容量模式
                 {
                     double totalGB = 0;
-                    // 获取对应的总容量 (从 Settings 静态变量)
                     if (key.IndexOf("MEM", StringComparison.OrdinalIgnoreCase) >= 0) totalGB = Settings.DetectedRamTotalGB;
                     else if (key.IndexOf("VRAM", StringComparison.OrdinalIgnoreCase) >= 0) totalGB = Settings.DetectedGpuVramTotalGB;
 
-                    // 只有当探测到了有效容量时，才进行转换
                     if (totalGB > 0)
                     {
-                        // 计算：(百分比 / 100) * 总GB = 已用GB
                         double usedGB = (v / 100.0) * totalGB;
-
-                        // 转成 Bytes 喂给 FormatDataSize
                         double usedBytes = usedGB * 1024.0 * 1024.0 * 1024.0;
-
-                        // 这里的 1 表示强制保留 1 位小数 (如 12.5GB)
-                        return FormatDataSize(usedBytes, "", 1);
+                        // 调用新版 FormatDataSizeParts
+                        return FormatDataSizeParts(usedBytes, 1);
                     }
                 }
-
-                // 模式为 0 (百分比)，或者还没探测到总容量 -> 回落显示百分比
-                return $"{v:0.0}%";
+                return ($"{v:0.0}", "%");
             }
-            // ★★★ [新增] 在这里插入 FPS 格式化逻辑 ★★★
-            if (key == "FPS") return $"{v:0} FPS";
-            
-            // 2. 百分比类 (Load)
-            if (key.IndexOf("LOAD", StringComparison.OrdinalIgnoreCase) >= 0)
-                return $"{v:0.0}%";
 
-            // 2. 温度类
-            if (key.IndexOf("TEMP", StringComparison.OrdinalIgnoreCase) >= 0)
-                return $"{v:0.0}°C";
+            if (key == "FPS") return ($"{v:0}", "FPS");
 
-            // ★★★ [新增] 风扇支持 ★★★
+            // 2. 百分比
+            if (key.IndexOf("LOAD", StringComparison.OrdinalIgnoreCase) >= 0) return ($"{v:0.0}", "%");
+
+            // 3. 温度
+            if (key.IndexOf("TEMP", StringComparison.OrdinalIgnoreCase) >= 0) return ($"{v:0.0}", "°C");
+
+            // 4. 风扇
             if (key.IndexOf("FAN", StringComparison.OrdinalIgnoreCase) >= 0 || 
-                key.IndexOf("PUMP", StringComparison.OrdinalIgnoreCase) >= 0) return $"{v:0} RPM";
+                key.IndexOf("PUMP", StringComparison.OrdinalIgnoreCase) >= 0) return ($"{v:0}", "RPM");
 
-            // 3. 频率类 (GHz / MHz)
-            if (key.IndexOf("CLOCK", StringComparison.OrdinalIgnoreCase) >= 0)
-                // 逻辑优化：>=1000MHz 显示 GHz，否则显示 MHz
-                //return v >= 1000 ? $"{v / 1000.0:F1}GHz" : $"{v:F0}MHz";
-                return $"{v / 1000.0:F1}GHz";
+            // 5. 频率
+            if (key.IndexOf("CLOCK", StringComparison.OrdinalIgnoreCase) >= 0) return ($"{v / 1000.0:F1}", "GHz");
 
-            // 4. 功耗类 (W)
-            if (key.IndexOf("POWER", StringComparison.OrdinalIgnoreCase) >= 0)
-                return $"{v:F0}W";
+            // 6. 功耗
+            if (key.IndexOf("POWER", StringComparison.OrdinalIgnoreCase) >= 0) return ($"{v:F0}", "W");
 
-            // 5. 流量/速率类 (NET / DISK / DATA)
-            // 复用 FormatDataSize 算法
+            // 7. 流量/速率 (NET/DISK/DATA)
             if (key.StartsWith("NET", StringComparison.OrdinalIgnoreCase) || 
-                key.StartsWith("DISK", StringComparison.OrdinalIgnoreCase))
-                return FormatDataSize(v, "/s"); // 速率带 /s
+                key.StartsWith("DISK", StringComparison.OrdinalIgnoreCase) ||
+                key.StartsWith("DATA", StringComparison.OrdinalIgnoreCase))
+            {
+                // 注意：这里不需要传入后缀 "/s"，因为我们在 GetDisplayUnit 里动态添加
+                return FormatDataSizeParts(v, -1);
+            }
 
+            return ($"{v:0.0}", "");
+        }
 
-            if (key.StartsWith("DATA", StringComparison.OrdinalIgnoreCase))
-                return FormatDataSize(v, "");   // 总量不带 /s
+        // [新增] 返回分离的 (数值, 单位)
+        public static (string val, string unit) FormatDataSizeParts(double bytes, int decimals = -1)
+        {
+            string[] sizes = { "KB", "MB", "GB", "TB", "PB" };
+            double len = bytes;
+            int order = 0;
+            len /= 1024.0; // 初始转 KB
+            while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024.0; }
 
-            return $"{v:0.0}";
+            string format;
+            if (decimals < 0) format = order <= 1 ? "0.0" : "0.00";
+            else if (decimals == 0) format = "0";
+            else format = "0." + new string('0', decimals);
+
+            return (len.ToString(format), sizes[order]);
+        }
+
+        // [兼容旧代码] 
+        public static string FormatValue(string key, float? raw)
+        {
+            var (val, unit) = FormatValueParts(key, raw);
+            // 默认行为：如果是速率，追加 /s
+            if (key.StartsWith("NET") || key.StartsWith("DISK")) unit += "/s";
+            return val + unit;
+        }
+
+        // ============================================================
+        // ★★★ 修改：获取默认单位 (区分主界面/任务栏) ★★★
+        // ============================================================
+        public static string GetDefaultUnit(string key, bool isTaskbar)
+        {
+            // 1. 速率类：主界面带 /s，任务栏默认省空间不带
+            if (key.StartsWith("NET") || (key.StartsWith("DISK") && !key.StartsWith("TEMP"))) 
+                return isTaskbar ? "{u}" : "{u}/s";
+            
+            // 2. 数据总量
+            if (key.StartsWith("DATA")) return "{u}";
+
+            // 3. 内存/显存
+            if (key.IndexOf("MEM", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                key.IndexOf("VRAM", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var cfg = Settings.Load();
+                return cfg.MemoryDisplayMode == 1 ? "{u}" : "%";
+            }
+
+            // 4. 常规静态单位 (两者一样)
+            if (key.IndexOf("LOAD", StringComparison.OrdinalIgnoreCase) >= 0) return "%";
+            if (key.IndexOf("TEMP", StringComparison.OrdinalIgnoreCase) >= 0) return "°C";
+            if (key.IndexOf("FAN", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                key.IndexOf("PUMP", StringComparison.OrdinalIgnoreCase) >= 0) return isTaskbar ? "R" : "RPM";
+            if (key.IndexOf("CLOCK", StringComparison.OrdinalIgnoreCase) >= 0) return "GHz";
+            if (key.IndexOf("POWER", StringComparison.OrdinalIgnoreCase) >= 0) return "W";
+            if (key == "FPS") return isTaskbar ? "F" : "FPS";
+
+            return "";
         }
 
         // ============================================================

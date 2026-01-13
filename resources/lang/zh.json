@@ -137,6 +137,7 @@
     "MonitorItem": "监控项",
     "name": "名称",
     "short": "简称",
+    "unit": "单位",
     "showHide": "显示 / 隐藏",
     "sort": "显示顺序",
     "Taskbar": "任务栏",

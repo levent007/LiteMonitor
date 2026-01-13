@@ -124,7 +124,6 @@ namespace LiteMonitor
             if (it.Bounds == Rectangle.Empty) return;
 
             // Label (居中顶部)
-            // ★★★ 优化：直接使用缓存的 it.Label ★★★
             string label = string.IsNullOrEmpty(it.Label) ? it.Key : it.Label;
             
             TextRenderer.DrawText(g, label, t.FontItem, it.LabelRect,
@@ -132,10 +131,18 @@ namespace LiteMonitor
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
 
             // Value (居中底部)
+            // ★★★ [优化]：如果用户使用了自定义单位 (HasCustomUnit)，则跳过窄屏自动精简逻辑 ★★★
+            // 原逻辑：if (narrow) valText = FormatHorizontalValue(...)
+            bool narrow = t.Layout.Width < 240 * t.Layout.LayoutScale;
+            string valText = it.GetFormattedText(narrow);
+            
+            // 只有在【窄屏】且【用户没有自定义单位】的情况下，才执行 "FormatHorizontalValue" (去/s 等操作)
+            // GetFormattedText 内部其实已经处理了这部分逻辑，这里再次处理是为了防守
+            if (narrow && !it.HasCustomUnit) 
+            {
+                valText = UIUtils.FormatHorizontalValue(valText);
+            }
 
-            string valText = it.GetFormattedText(t.Layout.Width < 240 * t.Layout.LayoutScale);
-            // 窄屏处理
-            if (t.Layout.Width < 240*t.Layout.LayoutScale) valText = UIUtils.FormatHorizontalValue(valText);
             Color valColor = it.GetTextColor(t);
 
             TextRenderer.DrawText(g, valText, t.FontValue, it.ValueRect,

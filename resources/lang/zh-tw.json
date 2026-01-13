@@ -139,6 +139,7 @@
     "MonitorItem": "監控項",
     "name": "名稱",
     "short": "簡稱",
+    "unit": "單位",
     "showHide": "顯示 / 隱藏",
     "sort": "顯示順序",
     "Taskbar": "工作列",

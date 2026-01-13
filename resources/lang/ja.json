@@ -141,6 +141,7 @@
     "MonitorItem": "項目",
     "name": "名前",
     "short": "略称",
+    "unit": "単位",
     "showHide": "表示",
     "sort": "順序",
     "Taskbar": "タスクバー",

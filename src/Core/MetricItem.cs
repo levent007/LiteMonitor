@@ -1,22 +1,20 @@
+using System;
+using System.Drawing;
+using System.Linq; // 需要 Linq 来查询 Config
 using LiteMonitor.src.Core;
 
 namespace LiteMonitor
 {
-    /// <summary>
-    /// 定义该指标项的渲染风格
-    /// </summary>
     public enum MetricRenderStyle
     {
-        StandardBar, // 标准：左标签 + 右数值 + 底部进度条 (CPU/MEM/GPU)
-        TwoColumn,   // 双列：居中标签 + 居中数值 (NET/DISK)
-        TextOnly     // [新增] 纯文本模式：左标签 + 右文本 (无进度条，用于 NET.IP)
+        StandardBar, 
+        TwoColumn,   
+        TextOnly     
     }
 
     public class MetricItem
     {
         private string _key = "";
-        
-        // [保留优化] 强制驻留字符串
         public string Key 
         { 
             get => _key;
@@ -30,7 +28,6 @@ namespace LiteMonitor
             set => _label = UIUtils.Intern(value);
         }
         
-        // [保留优化] 缓存短标签
         private string _shortLabel = "";
         public string ShortLabel 
         {
@@ -40,55 +37,99 @@ namespace LiteMonitor
         
         public float? Value { get; set; } = null;
         public float DisplayValue { get; set; } = 0f;
-
-        // [新增] 文本值覆盖 (用于 IP 显示)
         public string TextValue { get; set; } = null;
 
         // =============================
-        // [保留优化] 缓存字段
+        // 缓存字段
         // =============================
-        private float _cachedDisplayValue = -99999f; // 上一次格式化时的数值
-        private string _cachedNormalText = "";       // 缓存竖屏文本
-        private string _cachedHorizontalText = "";   // 缓存横屏/任务栏文本
-        public int CachedColorState { get; private set; } = 0;// [新增] 缓存颜色状态    
-        public double CachedPercent { get; private set; } = 0.0;// [新增] 缓存进度条百分比 (0.0 ~ 1.0)
+        private float _cachedDisplayValue = -99999f; 
+        private string _cachedNormalText = "";       // 完整文本 (值+单位)
+        private string _cachedHorizontalText = "";   // 完整横屏文本
+        
+        // ★★★ [新增] 分离缓存 ★★★
+        public string CachedValueText { get; private set; } = "";
+        public string CachedUnitText { get; private set; } = "";
+        public bool HasCustomUnit { get; private set; } = false; // 标记是否使用了自定义单位
 
-        // [新增] 面向对象的方法：给我主题，我给你我的颜色
-        // 渲染器调用这个方法，读起来非常像自然语言
+        public int CachedColorState { get; private set; } = 0;
+        public double CachedPercent { get; private set; } = 0.0;
+
         public Color GetTextColor(Theme t)
         {
             return UIUtils.GetStateColor(CachedColorState, t, true);
         }
 
-        /// <summary>
-        /// 获取格式化后的文本（带缓存机制）
-        /// </summary>
-        /// <param name="isHorizontal">是否为横屏/任务栏模式（需要极简格式）</param>
         public string GetFormattedText(bool isHorizontal)
         {
-            // [新增] 如果有强制文本值，直接返回 (支持 IP 显示)
             if (TextValue != null) return TextValue;
 
-            // 仅在数值变化时触发 (Tick 级更新)
+            // 只有数值变化时才重新计算字符串
             if (Math.Abs(DisplayValue - _cachedDisplayValue) > 0.05f)
             {
                 _cachedDisplayValue = DisplayValue;
-                _cachedNormalText = UIUtils.FormatValue(Key, DisplayValue);
-                _cachedHorizontalText = UIUtils.FormatHorizontalValue(_cachedNormalText);
 
-                // 1. 计算并缓存颜色状态
+                // 1. 获取基础数值和原始单位 (如 "10.5", "MB")
+                var (valStr, rawUnit) = UIUtils.FormatValueParts(Key, DisplayValue);
+                CachedValueText = valStr;
+
+                // 2. 获取用户配置 (注意：这里需要快速查找，Settings是单例)
+                // 考虑到性能，这里不建议每帧 Linq 查找，但由于 _cachedDisplayValue 过滤了大部分调用，
+                // 且 Item 数量很少(20个)，所以 FirstOrDefault 开销可忽略。
+                var cfg = Settings.Load().MonitorItems.FirstOrDefault(x => x.Key == Key);
+
+                // 3. 确定使用哪个单位配置
+                // 如果是横屏/任务栏模式 -> 用 UnitTaskbar，否则用 UnitPanel
+                string userFormat = isHorizontal ? cfg?.UnitTaskbar : cfg?.UnitPanel;
+                HasCustomUnit = !string.IsNullOrEmpty(userFormat) && userFormat != "Auto";
+
+                // 4. 生成最终单位
+                CachedUnitText = UIUtils.GetDisplayUnit(Key, rawUnit, userFormat);
+
+                // 5. 组合缓存 (为了兼容旧渲染器)
+                _cachedNormalText = CachedValueText + CachedUnitText;
+
+                // 6. 生成横屏文本
+                // 如果用户自定义了单位，我们直接使用组合文本，不进行 "去单位" 处理
+                if (HasCustomUnit)
+                {
+                    _cachedHorizontalText = _cachedNormalText;
+                }
+                else
+                {
+                    // 默认逻辑：智能精简
+                    // 以前是 FormatHorizontalValue(val+unit)，现在我们手动拼装
+                    // 为了保持 FormatHorizontalValue 的移除 /s 逻辑，我们传入默认组合
+                    // 但 UIUtils.GetDisplayUnit 已经处理了 Auto 逻辑
+                    // 简单起见，这里直接用 FormatHorizontalValue 处理默认组合
+                    string defaultFull = CachedValueText + (isHorizontal ? rawUnit : CachedUnitText); 
+                    // 这里稍微有点绕，为了保证任务栏 "Auto" 模式下能自动去掉 /s
+                    // 我们还是使用旧的 FormatHorizontalValue 逻辑来处理默认情况
+                    if (isHorizontal) 
+                        _cachedHorizontalText = UIUtils.FormatHorizontalValue(valStr + rawUnit + "/s"); // 模拟带/s让它去切
+                    else
+                        _cachedHorizontalText = _cachedNormalText; 
+                    
+                    // 修正：上面的模拟不太稳。
+                    // 正确逻辑：如果是默认 Auto，任务栏模式下，我们希望它是 "10.5MB" 而不是 "10.5MB/s"
+                    if (string.IsNullOrEmpty(userFormat) || userFormat == "Auto")
+                    {
+                         // 只有 NET/DISK 默认会带 /s，任务栏需要去掉
+                         // UIUtils.FormatHorizontalValue 会去掉 /s
+                         string autoUnit = UIUtils.GetDisplayUnit(Key, rawUnit, "Auto"); // 带/s
+                         _cachedHorizontalText = UIUtils.FormatHorizontalValue(valStr + autoUnit);
+                    }
+                    else
+                    {
+                        _cachedHorizontalText = valStr + CachedUnitText;
+                    }
+                }
+
                 CachedColorState = UIUtils.GetColorResult(Key, DisplayValue);
-
-                // 2. ★★★ 计算并缓存进度条百分比 ★★★
-                // 这样 DrawBar 就不用再做 IndexOf 字符串匹配了
                 CachedPercent = UIUtils.GetUnifiedPercent(Key, DisplayValue);
             }
             return isHorizontal ? _cachedHorizontalText : _cachedNormalText;
         }
 
-        // =============================
-        // 布局数据 (由 UILayout 计算填充)
-        // =============================
         public MetricRenderStyle Style { get; set; } = MetricRenderStyle.StandardBar;
         public Rectangle Bounds { get; set; } = Rectangle.Empty;
 
@@ -97,23 +138,14 @@ namespace LiteMonitor
         public Rectangle BarRect;     
         public Rectangle BackRect;    
 
-        /// <summary>
-        /// 平滑更新显示值
-        /// </summary>
         public void TickSmooth(double speed)
         {
             if (!Value.HasValue) return;
             float target = Value.Value;
             float diff = Math.Abs(target - DisplayValue);
-
-            // 忽略极小的变化，防止动画抖动
             if (diff < 0.05f) return;
-
-            // 距离过大或速度过快时直接跳转
-            if (diff > 15f || speed >= 0.9)
-                DisplayValue = target;
-            else
-                DisplayValue += (float)((target - DisplayValue) * speed);
+            if (diff > 15f || speed >= 0.9) DisplayValue = target;
+            else DisplayValue += (float)((target - DisplayValue) * speed);
         }
     }
 }

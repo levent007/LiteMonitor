@@ -140,6 +140,7 @@
     "MonitorItem": "항목",
     "name": "이름",
     "short": "약어",
+    "unit": "단위",
     "showHide": "표시",
     "sort": "정렬",
     "Taskbar": "작업줄",

@@ -140,6 +140,7 @@
     "MonitorItem": "Поле",
     "name": "Имя",
     "short": "Сокр.",
+    "unit": "Ед.",
     "showHide": "Вид",
     "sort": "Сорт.",
     "Taskbar": "Трей",

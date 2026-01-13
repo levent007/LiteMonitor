@@ -24,6 +24,8 @@ namespace LiteMonitor.src.UI.SettingsPage
         
         private Label _lblCol1; 
         private Label _lblCol2; 
+        // ★★★ [新增] 单位列 Label ★★★
+        private Label _lblColUnit;
         private Label _lblCol3; 
         private Label _lblCol4; 
 
@@ -79,7 +81,6 @@ namespace LiteMonitor.src.UI.SettingsPage
                 AutoSize = true, Visible = false, ForeColor = UIColors.TextSub, Font = UIFonts.Bold(9F)
             };
             
-            // ★★★ 核心修复：切换前先保存当前的排序状态 ★★★
             _chkOnlyVisible.CheckedChanged += (s, e) => 
             {
                 // 当复选框改变时，界面上显示的还是改变之前的状态
@@ -104,8 +105,9 @@ namespace LiteMonitor.src.UI.SettingsPage
             };
 
             _lblCol1 = CreateHeaderLabel(); _lblCol2 = CreateHeaderLabel();
+            _lblColUnit = CreateHeaderLabel(); // [新增]
             _lblCol3 = CreateHeaderLabel(); _lblCol4 = CreateHeaderLabel();
-            _headerPanel.Controls.AddRange(new Control[] { _lblCol1, _lblCol2, _lblCol3, _lblCol4 });
+            _headerPanel.Controls.AddRange(new Control[] { _lblCol1, _lblCol2, _lblColUnit, _lblCol3, _lblCol4 });
 
             this.Controls.Add(_headerPanel);
             this.Controls.Add(_tabPanel);
@@ -164,6 +166,9 @@ namespace LiteMonitor.src.UI.SettingsPage
                     Key = item.Key,
                     UserLabel = item.UserLabel,
                     TaskbarLabel = item.TaskbarLabel,
+                    // ★★★ [新增] 同步 Unit 字段 ★★★
+                    UnitPanel = item.UnitPanel,
+                    UnitTaskbar = item.UnitTaskbar,
                     VisibleInPanel = item.VisibleInPanel,
                     VisibleInTaskbar = item.VisibleInTaskbar,
                     SortIndex = item.SortIndex,
@@ -178,11 +183,10 @@ namespace LiteMonitor.src.UI.SettingsPage
         {
             _container.SuspendLayout();
             
-            // [新增] 刷新语言缓存：确保 _workingList 中的最新文本(如 FPS) 生效
-            // 解决 "FPSs" 缓存导致删除 's' 后重绘又变回 "FPSs" 的 Bug
+            // 刷新语言缓存
             UpdateLanguageCacheFromWorkingList();
 
-            // 清理旧控件 (注意：SaveToWorkingList 已经在 Reload 之前负责了保存数据)
+            // 清理旧控件 
             while (_container.Controls.Count > 0)
             {
                 var control = _container.Controls[0];
@@ -211,8 +215,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
                 for (int i = items.Count - 1; i >= 0; i--)
                 {
-                    var row = new MonitorItemRow(items[i]);
-                    row.SetMode(true);
+                    var row = new MonitorItemRow(items[i], true);
                     row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
                     _container.Controls.Add(row);
                 }
@@ -224,7 +227,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 
                 foreach (var g in groups.Reverse())
                 {
-                    var block = CreateGroupBlock(g.Key, g.ToList());
+                    var block = CreateGroupBlock(g.Key, g.ToList()); // 需要修改 CreateGroupBlock
                     _container.Controls.Add(block);
                 }
             }
@@ -232,7 +235,6 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container.ResumeLayout();
             _isLoaded = true;
         }
-
         // [新增] 临时将工作列表中的文本应用到语言管理器，以实现所见即所得
         private void UpdateLanguageCacheFromWorkingList()
         {
@@ -279,6 +281,10 @@ namespace LiteMonitor.src.UI.SettingsPage
             else _lblCol2.Text = LanguageManager.T("Menu.name");  
             _lblCol2.Location = new Point(MonitorLayout.X_COL2 + offset, y);
 
+            // ★★★ [新增] Unit Header ★★★
+            _lblColUnit.Text = LanguageManager.T("Menu.Unit"); // 可以放入 LanguageManager
+            _lblColUnit.Location = new Point(MonitorLayout.X_COL_UNIT + offset, y);
+
             _lblCol3.Text = LanguageManager.T("Menu.showHide"); 
             _lblCol3.Location = new Point(MonitorLayout.X_COL3 + offset, y);
 
@@ -303,8 +309,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             for (int i = items.Count - 1; i >= 0; i--)
             {
-                var row = new MonitorItemRow(items[i]);
-                row.SetMode(false); 
+                var row = new MonitorItemRow(items[i], false);
                 row.MoveUp += Row_MoveUp; row.MoveDown += Row_MoveDown;
                 rowsPanel.Controls.Add(row);
             }
@@ -323,7 +328,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (newIdx >= 0 && newIdx < p.Controls.Count) p.Controls.SetChildIndex(c, newIdx);
         }
 
-        // ★★★ 核心方法：保存 UI 状态到 _workingList ★★★
+        // 保存 UI 状态到 _workingList
         private void SaveToWorkingList(bool? isFilteredOverride = null)
         {
             if (_workingList == null) return;
@@ -334,14 +339,11 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (_isTaskbarTab)
             {
                 // 决定当前 UI 应该被视为 "过滤列表" 还是 "全量列表"
-                // 默认使用复选框状态，但允许 override (用于事件触发时的前置保存)
                 bool isFiltered = isFilteredOverride ?? _chkOnlyVisible.Checked;
 
                 if (isFiltered)
                 {
                     // === 算法：骨架+插队 (处理部分视图排序) ===
-                    
-                    // 获取当前 UI 上的顺序
                     var uiRows = _container.Controls.Cast<Control>().Reverse().OfType<MonitorItemRow>().ToList();
                     var newVisibleList = uiRows.Select(r => r.Config).ToList();
                     

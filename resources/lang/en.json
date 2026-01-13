@@ -140,6 +140,7 @@
     "MonitorItem": "Item",
     "name": "Name",
     "short": "Short",
+    "unit": "Unit",
     "showHide": "Show/Hide",
     "sort": "Sort",
     "Taskbar": "Taskbar",

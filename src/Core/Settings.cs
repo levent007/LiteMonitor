@@ -477,6 +477,11 @@ namespace LiteMonitor
         }
         public string UserLabel { get; set; } = ""; 
         public string TaskbarLabel { get; set; } = "";
+
+        // ★★★ [新增] 自定义单位配置 ★★★
+        // null/"Auto" = 自动(默认), "" = 不显示, "{u}/s" = 自定义格式
+        public string UnitPanel { get; set; } = null; 
+        public string UnitTaskbar { get; set; } = null;
         public bool VisibleInPanel { get; set; } = true;
         public bool VisibleInTaskbar { get; set; } = false;
         public int SortIndex { get; set; } = 0;

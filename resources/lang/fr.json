@@ -141,6 +141,7 @@
     "MonitorItem": "Item",
     "name": "Nom",
     "short": "Bref",
+    "unit": "Unité",
     "showHide": "Voir",
     "sort": "Tri",
     "Taskbar": "Tray",
