@@ -184,7 +184,7 @@ namespace LiteMonitor.src.UI.Controls
             Font font;
 
             // 样式选择
-            if (e.Node.Tag is IHardware) { font = _boldFont; txtColor = Color.Black; }
+            if (e.Node.Tag is IHardware) { font = _boldFont; txtColor = Color.FromArgb(20, 20, 20); }
             else if (e.Node.Tag is ISensor) { font = _baseFont; txtColor = Color.Black; }
             else { font = _boldFont; txtColor = Color.FromArgb(30, 30, 30); }
 
