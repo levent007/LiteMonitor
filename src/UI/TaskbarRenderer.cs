@@ -35,6 +35,13 @@ namespace LiteMonitor
         {     
             var s = cfg.GetStyle();
 
+            // ★★★ 修复：先释放旧字体资源，防止 GDI 句柄泄漏 ★★★
+            if (_cachedFont != null)
+            {
+                try { _cachedFont.Dispose(); } catch { }
+                _cachedFont = null;
+            }
+
             // 无论开关怎么变，这里拿到的永远是正确参数
             _cachedFont = UIUtils.GetFont(s.Font, s.Size, s.Bold);
 

@@ -36,9 +36,23 @@ namespace LiteMonitor.src.WebServer
                 // 配置防火墙 (传入当前端口)
                 ConfigFirewall(_cfg.WebServerPort);
                 _listener = new HttpListener();
-                _listener.Prefixes.Add($"http://*:{_cfg.WebServerPort}/");
                 _listener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
-                _listener.Start();
+
+                try
+                {
+                    // 优先尝试监听所有网卡 (需要管理员权限)
+                    _listener.Prefixes.Add($"http://*:{_cfg.WebServerPort}/");
+                    _listener.Start();
+                }
+                catch (HttpListenerException hlex) when (hlex.ErrorCode == 5) // Error 5 = Access Denied
+                {
+                    // ★★★ 修复：如果权限不足，自动回退到仅监听本机 (无需管理员权限) ★★★
+                    _listener.Prefixes.Clear();
+                    _listener.Prefixes.Add($"http://localhost:{_cfg.WebServerPort}/");
+                    _listener.Start();
+                    Debug.WriteLine("WebServer: Admin rights missing, fallback to localhost.");
+                }
+
                 _isRunning = true;
 
                 _serverThread = new Thread(ListenLoop) { IsBackground = true };
@@ -106,7 +120,14 @@ namespace LiteMonitor.src.WebServer
             var dataList = new List<object>();
             string localIp = hw.GetNetworkIP() ?? "127.0.0.1";
 
-            foreach (var item in _cfg.MonitorItems)
+            // ★★★ 修复：创建列表副本并加锁，防止遍历时 UI 线程修改集合导致崩溃 ★★★
+            List<MonitorItemConfig> itemsCopy;
+            lock (_cfg.MonitorItems)
+            {
+                itemsCopy = [.. _cfg.MonitorItems];// 复制列表，防止遍历时修改
+            }
+
+            foreach (var item in itemsCopy)
             {
                 if (item.Key == "NET.IP") continue; 
 

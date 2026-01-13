@@ -62,7 +62,7 @@ namespace LiteMonitor
         // 间距配置 (单位: px, 会自动随 DPI 缩放)
         public int TaskbarItemSpacing { get; set; } = 6;      // 组与组之间的间距
         public int TaskbarInnerSpacing { get; set; } = 8;     // 标签与数值之间的间距
-        public int TaskbarVerticalPadding { get; set; } = 2;  // 垂直方向的微调/行间距
+        public int TaskbarVerticalPadding { get; set; } = 3;  // 垂直方向的微调/行间距
         
         // ★★★ 新增：指定任务栏显示的屏幕设备名 ("" = 自动/主屏) ★★★
         public string TaskbarMonitorDevice { get; set; } = "";
