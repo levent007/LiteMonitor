@@ -170,6 +170,18 @@ namespace LiteMonitor.src.Plugins
         // For map
         [JsonPropertyName("map")]
         public Dictionary<string, string>? Map { get; set; }
+
+        // For threshold_switch
+        [JsonPropertyName("thresholds")]
+        public List<double>? Thresholds { get; set; }
+
+        // [New] For threshold_switch explicit mapping (e.g. ["0", "2"] for Safe/Crit only)
+        [JsonPropertyName("values")]
+        public List<string>? Values { get; set; }
+
+        // [New] Simplified Key-Value Map for Thresholds (e.g. { "0": "0", "80": "2" })
+        [JsonPropertyName("value_map")]
+        public Dictionary<string, string>? ValueMap { get; set; }
     }
 
     public class PluginOutput
@@ -184,7 +196,10 @@ namespace LiteMonitor.src.Plugins
         public string ShortLabel { get; set; } = ""; // 任务栏名称模式
 
         [JsonPropertyName("format_val")]
-        public string FormatVal { get; set; } = ""; // 数据格式，如 "{{val}}"
+        public string Format { get; set; } = ""; // 数据格式，如 "{{val}}"
+
+        [JsonPropertyName("color")]
+        public string Color { get; set; } = ""; // 颜色状态 (0=Safe, 1=Warn, 2=Crit)
 
         [JsonPropertyName("unit")]
         public string Unit { get; set; } = ""; // 单位

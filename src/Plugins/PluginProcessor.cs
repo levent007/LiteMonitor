@@ -133,6 +133,67 @@ namespace LiteMonitor.src.Plugins
                     // 将当前变量值视为模版，进行解析 (支持动态模版)
                     val = ResolveTemplate(val, context);
                 }
+                else if (t.Function == "threshold_switch")
+                {
+                    // [New] Flexible Color State Calculation
+                    if (double.TryParse(val, out double numVal))
+                    {
+                        // Priority 1: ValueMap (Key-Value Pairs) - Most Intuitive
+                        if (t.ValueMap != null && t.ValueMap.Count > 0)
+                        {
+                            // 1. Parse and Sort Keys
+                            var sorted = new List<(double Th, string Val)>();
+                            foreach (var kv in t.ValueMap)
+                            {
+                                if (double.TryParse(kv.Key, out double k)) sorted.Add((k, kv.Value));
+                            }
+                            sorted.Sort((a, b) => a.Th.CompareTo(b.Th));
+
+                            // 2. Find Match (Largest Threshold <= Value)
+                            // Default to the first (lowest) value if input is smaller than all keys (Clamp Bottom)
+                            string result = sorted[0].Val; 
+                            
+                            for (int i = 0; i < sorted.Count; i++)
+                            {
+                                if (numVal >= sorted[i].Th) result = sorted[i].Val;
+                                else break; // Since sorted, if numVal < current, it won't match any further
+                            }
+                            val = result;
+                        }
+                        // Priority 2: Legacy Thresholds Array
+                        else if (t.Thresholds != null)
+                        {
+                            // 1. Determine Interval Index
+                            int index = 0;
+                            for (int i = 0; i < t.Thresholds.Count; i++)
+                            {
+                                if (numVal >= t.Thresholds[i]) index = i + 1;
+                                else break;
+                            }
+
+                            // 2. Map to Output Value
+                            if (t.Values != null && index < t.Values.Count)
+                            {
+                                val = t.Values[index];
+                            }
+                            else
+                            {
+                                // Default Fallback Logic
+                                if (t.Thresholds.Count == 1) val = (index == 0) ? "0" : "2";
+                                else val = Math.Min(index, 2).ToString();
+                            }
+                        }
+                        else
+                        {
+                             val = "0"; // Safe default
+                        }
+                    }
+                    else
+                    {
+                        // Parse error -> Default to "0"
+                        val = "0";
+                    }
+                }
 
                 context[t.TargetVar] = val;
             }

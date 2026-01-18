@@ -173,8 +173,10 @@ namespace LiteMonitor
             string text = it.GetFormattedText(false);
             
             // ★★★ 修改：字体使用 FontItem (与标签一致)，颜色保持 ValueSafe ★★★
+            // [Fix] Use GetTextColor(t) to respect Plugin Color Override
+            Color valColor = it.GetTextColor(t);
             TextRenderer.DrawText(g, text, t.FontItem, it.ValueRect,
-                ThemeManager.ParseColor(t.Color.ValueSafe), 
+                valColor, 
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
             // ★★★ 修复：补充分割线 (最后一行不画) ★★★

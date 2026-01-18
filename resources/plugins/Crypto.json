@@ -64,6 +64,15 @@
             "var": "final_display",
             "source": "display_template",
             "function": "resolve_template"
+          },
+          {
+            "var": "color_state",
+            "source": "change",
+            "function": "threshold_switch",
+            "value_map": {
+              "-1000": "0",
+              "0": "2"
+            }
           }
         ]
       }
@@ -75,6 +84,7 @@
       "label": "{{symbol ?? name}}",
       "short_label": "{{symbol ?? name}}",
       "format_val": "{{final_display}}",
+      "color": "{{color_state}}",
       "unit": ""
     }
   ]

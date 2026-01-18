@@ -106,6 +106,15 @@
             "var": "final_display",
             "source": "display_template",
             "function": "resolve_template"
+          },
+          {
+            "var": "color_state",
+            "source": "change_percent",
+            "function": "threshold_switch",
+            "value_map": {
+              "-1000": "0",
+              "0": "2"
+            }
           }
         ]
       }
@@ -116,7 +125,8 @@
       "key": "main",
       "label": "{{name ?? code ?? query}}",
       "short_label": "{{name ?? code ?? query}}",
-      "format_val": "{{final_display}}"
+      "format_val": "{{final_display}}",
+      "color": "{{color_state}}"
     }
   ]
 }

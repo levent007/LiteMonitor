@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Linq; // 需要 Linq 来查询 Config
 using LiteMonitor.src.Core;
+using LiteMonitor.src.SystemServices.InfoService; // [New] For Plugin Color Override
 
 namespace LiteMonitor
 {
@@ -82,67 +83,57 @@ namespace LiteMonitor
 
         public string GetFormattedText(bool isHorizontal)
         {
-            // 1. 获取用户配置 (注意：这里需要快速查找，Settings是单例)
+            // [Debug & Fix] 1. Always update color state for Plugin Items FIRST
+            if (Key.StartsWith("DASH."))
+            {
+                string dashKey = Key.Substring(5);
+                string colorVal = InfoService.Instance.GetValue(dashKey + ".Color");
+                
+                if (!string.IsNullOrEmpty(colorVal))
+                {
+                    if (int.TryParse(colorVal, out int state)) 
+                    {
+                        CachedColorState = state;
+                    }
+                }
+                else
+                {
+                    CachedColorState = 0; // Default Safe if no color override
+                }
+            }
+
+            // 2. Load Config
             var cfg = Settings.Load().MonitorItems.FirstOrDefault(x => x.Key == Key);
-            
-            // 2. 确定使用哪个单位配置
             string userFormat = isHorizontal ? cfg?.UnitTaskbar : cfg?.UnitPanel;
             HasCustomUnit = !string.IsNullOrEmpty(userFormat) && userFormat != "Auto";
 
+            // 3. Return TextValue (Plugin/Dashboard items)
             if (TextValue != null) 
             {
-                // 对于插件/Dashboard项，如果有单位配置，则附加单位
-                if (HasCustomUnit)
-                {
-                    // 防止重复单位
-                    if (!TextValue.EndsWith(userFormat))
-                        return TextValue + userFormat;
-                }
+                if (HasCustomUnit && !TextValue.EndsWith(userFormat))
+                    return TextValue + userFormat;
                 return TextValue;
             }
 
-            // 只有数值变化时才重新计算字符串
+            // 4. Numeric Value Processing (Hardware items)
             if (Math.Abs(DisplayValue - _cachedDisplayValue) > 0.05f)
             {
                 _cachedDisplayValue = DisplayValue;
 
-                // 3. 获取基础数值和原始单位 (如 "10.5", "MB")
                 var (valStr, rawUnit) = UIUtils.FormatValueParts(Key, DisplayValue);
                 CachedValueText = valStr;
-
-                // 4. 生成最终单位
                 CachedUnitText = UIUtils.GetDisplayUnit(Key, rawUnit, userFormat);
-
-                // 5. 组合缓存
                 _cachedNormalText = CachedValueText + CachedUnitText;
 
-                // 6. 生成横屏文本
                 if (HasCustomUnit)
                 {
                     _cachedHorizontalText = _cachedNormalText;
                 }
                 else
                 {
-                    // 默认逻辑：智能精简
-                    // 以前是 FormatHorizontalValue(val+unit)，现在我们手动拼装
-                    // 为了保持 FormatHorizontalValue 的移除 /s 逻辑，我们传入默认组合
-                    // 但 UIUtils.GetDisplayUnit 已经处理了 Auto 逻辑
-                    // 简单起见，这里直接用 FormatHorizontalValue 处理默认组合
-                    string defaultFull = CachedValueText + (isHorizontal ? rawUnit : CachedUnitText); 
-                    // 这里稍微有点绕，为了保证任务栏 "Auto" 模式下能自动去掉 /s
-                    // 我们还是使用旧的 FormatHorizontalValue 逻辑来处理默认情况
-                    if (isHorizontal) 
-                        _cachedHorizontalText = UIUtils.FormatHorizontalValue(valStr + rawUnit + "/s"); // 模拟带/s让它去切
-                    else
-                        _cachedHorizontalText = _cachedNormalText; 
-                    
-                    // 修正：上面的模拟不太稳。
-                    // 正确逻辑：如果是默认 Auto，任务栏模式下，我们希望它是 "10.5MB" 而不是 "10.5MB/s"
                     if (string.IsNullOrEmpty(userFormat) || userFormat == "Auto")
                     {
-                         // 只有 NET/DISK 默认会带 /s，任务栏需要去掉
-                         // UIUtils.FormatHorizontalValue 会去掉 /s
-                         string autoUnit = UIUtils.GetDisplayUnit(Key, rawUnit, "Auto"); // 带/s
+                         string autoUnit = UIUtils.GetDisplayUnit(Key, rawUnit, "Auto"); 
                          _cachedHorizontalText = UIUtils.FormatHorizontalValue(valStr + autoUnit);
                     }
                     else
@@ -151,7 +142,12 @@ namespace LiteMonitor
                     }
                 }
 
-                CachedColorState = UIUtils.GetColorResult(Key, DisplayValue);
+                // Only calculate color if NOT a plugin item (already handled above)
+                if (!Key.StartsWith("DASH."))
+                {
+                    CachedColorState = UIUtils.GetColorResult(Key, DisplayValue);
+                }
+                
                 CachedPercent = UIUtils.GetUnifiedPercent(Key, DisplayValue);
             }
             return isHorizontal ? _cachedHorizontalText : _cachedNormalText;

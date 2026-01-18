@@ -393,11 +393,18 @@ namespace LiteMonitor.src.Plugins
                 foreach (var output in tmpl.Outputs)
                 {
                     // 1. 注入数值 (Update InfoService)
-                    string val = PluginProcessor.ResolveTemplate(output.FormatVal, inputs);
+                    string val = PluginProcessor.ResolveTemplate(output.Format, inputs);
                     string injectKey = inst.Id + keySuffix + "." + output.Key;
                     
                     if (string.IsNullOrEmpty(val)) val = "[Empty]";
                     InfoService.Instance.InjectValue(injectKey, val);
+
+                    // [New] Inject Color State Override
+                    if (!string.IsNullOrEmpty(output.Color))
+                    {
+                        string colorState = PluginProcessor.ResolveTemplate(output.Color, inputs);
+                        InfoService.Instance.InjectValue(injectKey + ".Color", colorState);
+                    }
 
                     // 2. 动态更新 Label (Conditional Update)
                     // [Strategy] "Write-Once" with Auto-Recovery
