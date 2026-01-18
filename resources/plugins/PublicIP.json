@@ -1,15 +1,15 @@
 {
-  "id": "com.network.ip",
+  "id": "PublicIP",
   "meta": {
     "name": "公网IP",
-    "version": "2.1.0",
-    "author": "System",
-    "description": "获取当前网络的公网IPv4地址"
+    "version": "1.0.0",
+    "author": "LiteMonitor",
+    "description": "公网IP插件，获取当前网络的公网IPv4地址"
   },
   "inputs": [],
   "execution": {
     "type": "chain",
-    "interval": 600000,
+    "interval": 600,
     "steps": [
       {
         "id": "get_ip",
@@ -26,7 +26,7 @@
       "key": "addr",
       "label": "公网IP",
       "short_label": "IP",
-      "format": "{{ip}}",
+      "format_val": "{{ip}}",
       "unit": ""
     }
   ]

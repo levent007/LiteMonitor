@@ -64,7 +64,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         /// </summary>
         protected LiteUnderlineInput AddString(LiteSettingsGroup group, string title, Func<string> get, Action<string> set, string placeholder = "")
         {
-            var input = new LiteUnderlineInput(get(), "", "", 120);
+            var input = new LiteUnderlineInput(get(), "", "", 100);
             input.Padding = UIUtils.S(new Padding(0, 5, 0, 1));
             if (!string.IsNullOrEmpty(placeholder)) input.Placeholder = placeholder;
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace LiteMonitor.src.Core.Plugins
+namespace LiteMonitor.src.Plugins
 {
     /// <summary>
     /// 插件数据处理类
@@ -96,6 +96,28 @@ namespace LiteMonitor.src.Core.Plugins
                         }
 
                         val = Regex.Replace(val, t.Pattern, replacement); // 使用 To 替换匹配项
+                    }
+                    catch { }
+                }
+                else if (t.Function == "regex_match")
+                {
+                    try
+                    {
+                        var match = Regex.Match(val, t.Pattern);
+                        if (match.Success)
+                        {
+                            int groupIndex = 1;
+                            if (int.TryParse(t.To, out int idx)) groupIndex = idx;
+                            
+                            if (groupIndex < match.Groups.Count)
+                            {
+                                val = match.Groups[groupIndex].Value;
+                            }
+                        }
+                        else
+                        {
+                            val = ""; // No match
+                        }
                     }
                     catch { }
                 }

@@ -283,13 +283,40 @@ namespace LiteMonitor
             // 1. 清理监控项 Keys
             if (MonitorItems != null)
             {
+                // [Cleanup] Remove Orphaned Plugin Items
+                // 如果一个 DASH.xxx 项找不到对应的 PluginInstance，或者对应 Instance 被禁用了，则移除它
+                var keysToRemove = new List<MonitorItemConfig>();
+                var activeInstanceIds = PluginInstances.Where(p => p.Enabled).Select(p => p.Id).ToHashSet();
+                
                 foreach (var item in MonitorItems)
                 {
                     if (item != null)
                     {
                         item.Key = UIUtils.Intern(item.Key);
                         // 如果 MonitorItemConfig 有其他 string 字段(如 Name)，也一并 Intern
+                        
+                        // Check Orphans
+                        if (item.Key.StartsWith("DASH.") && !item.Key.StartsWith("DASH.HOST") && 
+                            !item.Key.StartsWith("DASH.Time") && !item.Key.StartsWith("DASH.IP") && 
+                            !item.Key.StartsWith("DASH.Uptime")) // Skip built-in dashboard items
+                        {
+                            // Key format: DASH.{InstanceId}.{Suffix} or DASH.{InstanceId}
+                            var parts = item.Key.Split('.');
+                            if (parts.Length >= 2)
+                            {
+                                string instId = parts[1];
+                                if (!activeInstanceIds.Contains(instId))
+                                {
+                                    keysToRemove.Add(item);
+                                }
+                            }
+                        }
                     }
+                }
+                
+                foreach (var orphan in keysToRemove)
+                {
+                    MonitorItems.Remove(orphan);
                 }
             }
 
@@ -454,10 +481,11 @@ namespace LiteMonitor
             {
                 // ★★★ [新增] Dashboard Items (默认排在最前) ★★★
                 // 默认将 TaskbarLabel 设为空格，以隐藏标签
-                new MonitorItemConfig { Key = "DASH.HOST", SortIndex = -10, TaskbarSortIndex = 100, VisibleInPanel = true, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.Time", SortIndex = -9, TaskbarSortIndex = 200, VisibleInPanel = true, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.IP",   SortIndex = -8, TaskbarSortIndex = 300, VisibleInPanel = true, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = -7, TaskbarSortIndex = 310, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.HOST", SortIndex = -100, TaskbarSortIndex = 100, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.Time", SortIndex = -90, TaskbarSortIndex = 200, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = -80, TaskbarSortIndex = 300, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.IP",   SortIndex = -70, TaskbarSortIndex = 400, VisibleInPanel = true, TaskbarLabel = " " },
+               
                 new MonitorItemConfig { Key = "CPU.Load",  SortIndex = 0, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 1, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Clock", SortIndex = 2, VisibleInPanel = false },
@@ -502,8 +530,24 @@ namespace LiteMonitor
             // ★★★ 修改：使用可回收的 UIUtils.Intern ★★★
             set => _key = UIUtils.Intern(value ?? "");   // 新代码
         }
+        // ★★★ [优化] 分离用户配置与系统动态值 ★★★
+        // UserLabel: 用户手动设置的名称 (持久化)。为空表示跟随系统。
         public string UserLabel { get; set; } = ""; 
         public string TaskbarLabel { get; set; } = "";
+
+        // DynamicLabel: 插件运行时计算的名称 (不持久化)。
+        [JsonIgnore]
+        public string DynamicLabel { get; set; } = "";
+        
+        [JsonIgnore]
+        public string DynamicTaskbarLabel { get; set; } = "";
+
+        // DisplayLabel: 最终显示名称 (优先显示用户设置，否则显示动态值)
+        [JsonIgnore]
+        public string DisplayLabel => !string.IsNullOrEmpty(UserLabel) ? UserLabel : DynamicLabel;
+        
+        [JsonIgnore]
+        public string DisplayTaskbarLabel => !string.IsNullOrEmpty(TaskbarLabel) ? TaskbarLabel : DynamicTaskbarLabel;
 
         // ★★★ [新增] 自定义单位配置 ★★★
         // null/"Auto" = 自动(默认), "" = 不显示, "{u}/s" = 自定义格式
@@ -570,7 +614,7 @@ namespace LiteMonitor
     {
         public string Id { get; set; } = "";
         public string TemplateId { get; set; } = "";
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get; set; } = false;
         public int CustomInterval { get; set; } = 0; // 自定义刷新频率 (0 = 使用模版默认)
         
         // 全局参数 (Scope="global")

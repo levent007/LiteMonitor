@@ -1,4 +1,4 @@
-﻿using System.Drawing.Drawing2D;
+using System.Drawing.Drawing2D;
 using System.Collections.Generic; // 补全引用
 using System.Drawing; // 补全引用
 using System.Linq; // 补全引用

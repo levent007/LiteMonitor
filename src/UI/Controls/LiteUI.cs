@@ -58,7 +58,7 @@ namespace LiteMonitor.src.UI.Controls
             };
             _header.Controls.Add(lbl);
             // ★★★ 修改：绘图线坐标动态化 (header.Height - 1)
-            _header.Paint += (s, e) => e.Graphics.DrawLine(new Pen(UIColors.Border), 0, _header.Height - 1, _header.Width, _header.Height - 1);
+            _header.Paint += (s, e) => { using(var p = new Pen(UIColors.Border)) e.Graphics.DrawLine(p, 0, _header.Height - 1, _header.Width, _header.Height - 1); };
 
             _layout = new TableLayoutPanel
             {

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using LiteMonitor;
 using LiteMonitor.src.Core;
-using LiteMonitor.src.Core.Plugins;
+using LiteMonitor.src.Plugins;
 using LiteMonitor.src.UI.Controls;
 
 namespace LiteMonitor.src.UI.SettingsPage
@@ -40,13 +40,21 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void RebuildUI()
         {
             _container.SuspendLayout();
-            _container.Controls.Clear();
+            
+            // Dispose old controls to prevent GDI handle leaks
+            // Win32 Parent Window Error occurs if we just Clear() without disposing
+            while (_container.Controls.Count > 0)
+            {
+                var ctrl = _container.Controls[0];
+                _container.Controls.RemoveAt(0);
+                ctrl.Dispose();
+            }
 
             var templates = PluginManager.Instance.GetAllTemplates();
             var instances = Settings.Load().PluginInstances;
 
             // 1. Hint Note (Standard LiteNote)
-            var hint = new LiteNote("如需修改显示名称、单位或排序，请前往 [监控项管理] 页面");
+            var hint = new LiteNote("⚠️说明：如需修改插件监控目标的显示名称、单位或排序，请前往 [监控项显示] 设置页面");
             hint.Dock = DockStyle.Top;
             // Matches MainPanelPage wrapper padding style roughly
             var hintWrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
@@ -89,7 +97,7 @@ namespace LiteMonitor.src.UI.SettingsPage
         private void CreatePluginGroup(PluginInstanceConfig inst, PluginTemplate tmpl, bool isDefault)
         {
             // Title: Name + Version + Author + ID
-            string title = $"{tmpl.Meta.Name} v{tmpl.Meta.Version} (ID: {inst.Id}) by:{tmpl.Meta.Author}";
+            string title = $"{tmpl.Meta.Name} v{tmpl.Meta.Version} (ID: {inst.Id}) by: {tmpl.Meta.Author}";
             var group = new LiteSettingsGroup(title);
 
             // 1. Description & Actions (Header Panel)
@@ -134,7 +142,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             );
 
             // 3. Refresh Rate (Replaces ID Input)
-            AddNumberInt(group, "刷新频率", "ms", 
+            AddNumberInt(group, "刷新频率", "s", 
                 () => inst.CustomInterval > 0 ? inst.CustomInterval : tmpl.Execution.Interval,
                 v => {
                     if (inst.CustomInterval != v) {
@@ -218,7 +226,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                         linkRem.Enabled = false;
                     }
 
-                    var headerItem = new LiteSettingsItem($"# 目标 {index + 1}", linkRem);
+                    var headerItem = new LiteSettingsItem($"# 监控目标 {index + 1}", linkRem);
                     // Customize style to look like a sub-header
                     headerItem.Label.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold);
                     headerItem.Label.ForeColor = UIColors.Primary;
@@ -260,7 +268,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                 }
 
                 // Add Target Button
-                var btnAdd = new LiteButton("+ 添加新目标", false, true); // Dashed style
+                var btnAdd = new LiteButton("+ 添加新监控目标", false, true); // Dashed style
                 btnAdd.Click += (s, e) => {
                     // Pre-fill with default values
                     var newTarget = new Dictionary<string, string>();
@@ -278,6 +286,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 };
                 
                 group.AddFullItem(btnAdd);
+                // [Fix] Manually override margin after AddFullItem resets it to create space
+                btnAdd.Margin = UIUtils.S(new Padding(0, 15, 0, 0));
             }
 
             AddGroupToPage(group);

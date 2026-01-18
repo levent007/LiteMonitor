@@ -360,16 +360,38 @@ namespace LiteMonitor
                 
                 foreach (var itemConfig in sortedItems)
                 {
+                    // ★★★ [Fix] 优先使用 DynamicLabel (插件名)，如果为空尝试自救 ★★★
+                    if (string.IsNullOrEmpty(itemConfig.DisplayLabel) && itemConfig.Key.StartsWith("DASH."))
+                    {
+                         var rescue = LiteMonitor.src.Plugins.PluginManager.Instance.TryGetSmartLabel(itemConfig.Key);
+                         if (!string.IsNullOrEmpty(rescue)) itemConfig.DynamicLabel = rescue;
+                    }
+                    if (string.IsNullOrEmpty(itemConfig.DisplayTaskbarLabel) && itemConfig.Key.StartsWith("DASH."))
+                    {
+                         var rescueShort = LiteMonitor.src.Plugins.PluginManager.Instance.TryGetSmartLabel(itemConfig.Key, "short_label");
+                         if (!string.IsNullOrEmpty(rescueShort)) itemConfig.DynamicTaskbarLabel = rescueShort;
+                    }
+
                     // 1. 拼接名称
-                    string full = LanguageManager.T(UIUtils.Intern("Items." + itemConfig.Key));
+                    // Full Name: DisplayLabel > Loc(Items.Key) > Key
+                    string full = !string.IsNullOrEmpty(itemConfig.DisplayLabel) ? itemConfig.DisplayLabel : LanguageManager.T(UIUtils.Intern("Items." + itemConfig.Key));
                     if (full.StartsWith("Items.")) full = itemConfig.Key;
                     
-                    string shortName = LanguageManager.T(UIUtils.Intern("Short." + itemConfig.Key));
-                    if (shortName.StartsWith("Short.")) shortName = itemConfig.Key;
+                    // Short Name: DisplayTaskbarLabel > Loc(Short.Key) > Key
+                    // Note: TaskbarLabel might be " " (hidden), so we check DisplayTaskbarLabel carefully
+                    string shortName = itemConfig.DisplayTaskbarLabel; // Could be " "
+                    if (string.IsNullOrEmpty(shortName) || shortName == " ")
+                    {
+                         // If hidden or empty, fallback to default localized short name for the menu text
+                         shortName = LanguageManager.T(UIUtils.Intern("Short." + itemConfig.Key));
+                         if (shortName.StartsWith("Short.")) shortName = itemConfig.Key;
+                    }
 
-                    // 注意：这里保留了您提供的 $"{shortName} ({full})" 格式 (例如: "Up (上传速度)")
-                    string label = string.IsNullOrEmpty(itemConfig.TaskbarLabel) 
-                        ? $"{shortName} ({full})" : itemConfig.TaskbarLabel;
+                    // 2. 构造菜单显示文本
+                    // Logic: "{Short} ({Full})" e.g. "Up (Upload Speed)"
+                    // If user set TaskbarLabel to " " (Hidden), we still want to show meaningful text in the MENU.
+                    // So we use the calculated 'shortName' (fallback to default) + 'full'.
+                    string label = $"{shortName} ({full})";
 
                     // 2. 创建菜单
                     var itemMenu = new ToolStripMenuItem(label)
@@ -419,9 +441,17 @@ namespace LiteMonitor
 
                     foreach (var itemConfig in g)
                     {
+                        // ★★★ [Fix] 优先使用 DynamicLabel (插件名)，如果为空尝试自救 ★★★
+                        if (string.IsNullOrEmpty(itemConfig.DisplayLabel) && itemConfig.Key.StartsWith("DASH."))
+                        {
+                             var rescue = LiteMonitor.src.Plugins.PluginManager.Instance.TryGetSmartLabel(itemConfig.Key);
+                             if (!string.IsNullOrEmpty(rescue)) itemConfig.DynamicLabel = rescue;
+                        }
+
+                        // Label: DisplayLabel > Loc(Items.Key) > Key
                         string def = LanguageManager.T(UIUtils.Intern("Items." + itemConfig.Key));
                         if (def.StartsWith("Items.")) def = itemConfig.Key;
-                        string label = string.IsNullOrEmpty(itemConfig.UserLabel) ? def : itemConfig.UserLabel;
+                        string label = !string.IsNullOrEmpty(itemConfig.DisplayLabel) ? itemConfig.DisplayLabel : def;
 
                         var itemMenu = new ToolStripMenuItem(label)
                         {

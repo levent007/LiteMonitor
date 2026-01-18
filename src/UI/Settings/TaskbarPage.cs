@@ -36,7 +36,14 @@ namespace LiteMonitor.src.UI.SettingsPage
             if (Config == null || _isLoaded) return;
             
             _container.SuspendLayout();
-            _container.Controls.Clear();
+            
+            // Dispose old controls
+            while (_container.Controls.Count > 0)
+            {
+                var ctrl = _container.Controls[0];
+                _container.Controls.RemoveAt(0);
+                ctrl.Dispose();
+            }
 
             CreateGeneralGroup(); 
             CreateLayoutGroup();

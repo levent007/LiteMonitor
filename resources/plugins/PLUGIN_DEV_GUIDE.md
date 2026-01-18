@@ -63,7 +63,7 @@
 ```json
 "execution": {
   "type": "chain",
-  "interval": 300000, // 刷新间隔 (毫秒)
+  "interval": 300, // 刷新间隔 (秒)
   "steps": [
     {
       "id": "step_locate",
@@ -119,6 +119,11 @@
     "source": "status_code",
     "function": "map",
     "map": { "200": "✅", "404": "❌" }
+  },
+  {
+      "var": "final_display",
+      "source": "template",// 模板字符串变量
+      "function": "resolve_template",
   }
 ]
 ```
@@ -127,17 +132,15 @@
 定义数据如何在监控面板中显示。
 
 ```json
-"parsing": {
-  "outputs": [
-    {
-      "key": "temp",
-      "label": "{{city_display ?? city ?? auto_city}}天气", // 强烈推荐使用 Fallback 语法
-      "short_label": "{{city_display ?? city ?? auto_city}}",
-      "format": "{{temp}}°C",
-      "unit": ""
-    }
-  ]
-}
+"outputs": [
+  {
+    "key": "temp",
+    "label": "{{city_display ?? city ?? auto_city}}天气", // 强烈推荐使用 Fallback 语法
+    "short_label": "{{city_display ?? city ?? auto_city}}",
+    "format_val": "{{temp}}°C",
+    "unit": ""
+  }
+]
 ```
 
 #### 最佳实践：Label 的 Fallback 机制

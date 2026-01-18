@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace LiteMonitor.src.Core.Plugins
+namespace LiteMonitor.src.Plugins
 {
     // ==========================================
     // 1. 模版定义 (对应 JSON 文件)
@@ -93,7 +93,7 @@ namespace LiteMonitor.src.Core.Plugins
         public string Method { get; set; } = "GET"; // GET, POST
 
         [JsonPropertyName("interval")]
-        public int Interval { get; set; } = 60000;
+        public int Interval { get; set; } = 60;
 
         [JsonPropertyName("url")]
         public string Url { get; set; } = ""; // 支持 {{key}} 替换
@@ -183,8 +183,8 @@ namespace LiteMonitor.src.Core.Plugins
         [JsonPropertyName("short_label")]
         public string ShortLabel { get; set; } = ""; // 任务栏名称模式
 
-        [JsonPropertyName("format")]
-        public string Format { get; set; } = ""; // 数据格式，如 "{{val}}"
+        [JsonPropertyName("format_val")]
+        public string FormatVal { get; set; } = ""; // 数据格式，如 "{{val}}"
 
         [JsonPropertyName("unit")]
         public string Unit { get; set; } = ""; // 单位

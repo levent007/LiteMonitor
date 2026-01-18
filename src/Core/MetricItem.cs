@@ -29,11 +29,12 @@ namespace LiteMonitor
         {
             get 
             {
-                // [核心逻辑] 如果绑定了 Config，优先读取 Config 中的 UserLabel
-                // 这样插件更新 UserLabel 后，这里无需任何操作即可读到最新值
-                if (BoundConfig != null && !string.IsNullOrEmpty(BoundConfig.UserLabel))
+                // [核心逻辑] 如果绑定了 Config，优先读取 Config 中的 DisplayLabel
+                // 这样插件更新 DynamicLabel 或用户更新 UserLabel 后，这里无需任何操作即可读到最新值
+                if (BoundConfig != null)
                 {
-                    return BoundConfig.UserLabel;
+                    // 注意：这里使用 DisplayLabel (UserLabel ?? DynamicLabel)
+                    if (!string.IsNullOrEmpty(BoundConfig.DisplayLabel)) return BoundConfig.DisplayLabel;
                 }
                 return _label;
             }
@@ -45,9 +46,9 @@ namespace LiteMonitor
         {
             get 
             {
-                if (BoundConfig != null && !string.IsNullOrEmpty(BoundConfig.TaskbarLabel))
+                if (BoundConfig != null)
                 {
-                    return BoundConfig.TaskbarLabel;
+                    if (!string.IsNullOrEmpty(BoundConfig.DisplayTaskbarLabel)) return BoundConfig.DisplayTaskbarLabel;
                 }
                 return _shortLabel;
             }

@@ -165,6 +165,18 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 var json = JsonSerializer.Serialize(Config.MonitorItems);
                 _workingList = JsonSerializer.Deserialize<List<MonitorItemConfig>>(json) ?? new List<MonitorItemConfig>();
+
+                // ★★★ Fix: Restore Dynamic Properties lost during JSON serialization (due to [JsonIgnore]) ★★★
+                // This ensures the Settings UI displays the current live values (e.g. "Tencent 200") instead of empty/default ones.
+                var liveMap = Config.MonitorItems.ToDictionary(x => x.Key, x => x);
+                foreach (var item in _workingList)
+                {
+                    if (liveMap.TryGetValue(item.Key, out var liveItem))
+                    {
+                        item.DynamicLabel = liveItem.DynamicLabel;
+                        item.DynamicTaskbarLabel = liveItem.DynamicTaskbarLabel;
+                    }
+                }
             }
             catch
             {

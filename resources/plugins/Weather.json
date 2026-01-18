@@ -1,10 +1,10 @@
 {
-  "id": "weather_sojson",
+  "id": "Weather",
   "meta": {
-    "name": "自动天气 (SoJson)",
+    "name": "实时天气",
     "version": "1.1.0",
-    "author": "System",
-    "description": "基于IP定位，获取高精度天气数据"
+    "author": "LiteMonitor",
+    "description": "实时天气插件，基于IP自动定位，获取高精度天气数据，支持多种显示方式"
   },
   "inputs": [
     {
@@ -17,7 +17,7 @@
     },
     {
       "key": "style",
-      "label": "显示格式",
+      "label": "显示内容",
       "type": "select",
       "default": "standard",
       "scope": "target",
@@ -33,7 +33,7 @@
   ],
   "execution": {
     "type": "chain",
-    "interval": 1800000,
+    "interval": 1800,
     "steps": [
       {
         "id": "step1_ip",
@@ -197,7 +197,7 @@
       "key": "temp",
       "label": "{{city_display ?? city ?? auto_city}}天气",
       "short_label": "{{city_display ?? city ?? auto_city}}",
-      "format": "{{final_display}}",
+      "format_val": "{{final_display}}",
       "unit": ""
     }
   ]

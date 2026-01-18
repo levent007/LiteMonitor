@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using LiteMonitor;
 using LiteMonitor.src.SystemServices.InfoService;
 
-namespace LiteMonitor.src.Core.Plugins
+namespace LiteMonitor.src.Plugins
 {
     /// <summary>
     /// 插件管理器 (Refactored)
@@ -81,7 +81,7 @@ namespace LiteMonitor.src.Core.Plugins
                     {
                         Id = newId,
                         TemplateId = tmpl.Id,
-                        Enabled = true
+                        Enabled = false
                     };
                     
                     foreach(var input in tmpl.Inputs)
@@ -207,7 +207,20 @@ namespace LiteMonitor.src.Core.Plugins
 
             var settings = Settings.Load();
             var inst = settings.PluginInstances.FirstOrDefault(x => x.Id == instanceId);
-            if (inst == null || !inst.Enabled) return;
+            
+            // ★★★ [Fix] 如果实例被禁用(Enabled=false)或者已删除，应该清理其关联的 MonitorItems ★★★
+            if (inst == null || !inst.Enabled)
+            {
+                // Clean up items if disabled
+                string mainKey = "DASH." + instanceId;
+                var itemsToRemove = settings.MonitorItems.Where(x => x.Key == mainKey || x.Key.StartsWith(mainKey + ".")).ToList();
+                if (itemsToRemove.Count > 0)
+                {
+                    foreach (var item in itemsToRemove) settings.MonitorItems.Remove(item);
+                    settings.Save();
+                }
+                return;
+            }
             
             var tmpl = _templates.FirstOrDefault(x => x.Id == inst.TemplateId);
             if (tmpl == null) return;
@@ -261,13 +274,13 @@ namespace LiteMonitor.src.Core.Plugins
             // 立即执行一次
             Task.Run(() => _executor.ExecuteInstanceAsync(inst, tmpl, cts.Token));
 
-            // 设定间隔
+            // 设定间隔 (单位：秒)
             int interval = inst.CustomInterval > 0 ? inst.CustomInterval : tmpl.Execution.Interval;
-            if (interval < 1000) interval = 1000;
+            if (interval < 1) interval = 1; // Minimum 1s
 
             // [Refactor] Timer 逻辑重构：Stop-Wait 模式
             // 避免 AutoReset=true 导致的重入问题（即上一次还没跑完，下一次又触发了）
-            var newTimer = new System.Timers.Timer(interval);
+            var newTimer = new System.Timers.Timer(interval * 1000); // Convert Seconds to Milliseconds
             newTimer.AutoReset = false; // 关键：执行完才触发下一次
             
             newTimer.Elapsed += async (s, e) => 
@@ -363,48 +376,48 @@ namespace LiteMonitor.src.Core.Plugins
                         if (labelPattern.Contains("{{") && !finalName.Contains("{{") && finalName.Length < 3) 
                         {
                              // Simple heuristic: if result is too short but pattern was complex, likely fallback failed to empty strings
-                             // But "北京" is length 2. "天气" is length 2.
-                             // Better: if finalName equals the static parts of labelPattern only?
-                             // Let's rely on CanResolveAllVars which we need to improve or just trust the result not being empty?
-                             // The user issue is: "天气" (length 2). 
-                             // If label is "{{...}}天气", and {{...}} resolves to empty, we get "天气".
-                             // So if finalName == "天气" (or whatever static suffix), we might want to skip update.
                         }
 
                         if (item == null)
                         {
+                            // [Fix] Even if variables are not resolved, we MUST add the item if it doesn't exist.
+                            // Otherwise, the item will never appear in the UI, and the user cannot see it.
+                            // We use whatever 'finalName' we have (e.g. fallback value, or partially resolved string).
+                            // If finalName is empty, we use Key as fallback.
+                            string safeLabel = !string.IsNullOrEmpty(finalName) ? finalName : (tmpl.Meta.Name + " " + output.Key);
+                            string safeShort = !string.IsNullOrEmpty(finalShort) ? finalShort : output.Key;
+
+                            // [Fix] Auto-append to the end of the list
+                            int maxSort = settings.MonitorItems.Count > 0 ? settings.MonitorItems.Max(x => x.SortIndex) : 0;
+                            int maxTbSort = settings.MonitorItems.Count > 0 ? settings.MonitorItems.Max(x => x.TaskbarSortIndex) : 0;
+
                             item = new MonitorItemConfig
                             {
                                 Key = itemKey,
-                                UserLabel = finalName,
-                                TaskbarLabel = finalShort,
+                                // [Scientific Fix] 初始化时 UserLabel 设为空，表示"自动模式"
+                                // 我们把初始值放入 DynamicLabel，以便立即显示，但不持久化
+                                UserLabel = "", 
+                                DynamicLabel = safeLabel, 
+                                TaskbarLabel = "", // 同理，简称也进入自动模式
+                                DynamicTaskbarLabel = safeShort,
                                 UnitPanel = output.Unit,
                                 VisibleInPanel = true,
-                                SortIndex = -1,
+                                SortIndex = maxSort + 1,
+                                TaskbarSortIndex = maxTbSort + 1,
                             };
                             settings.MonitorItems.Add(item);
                             changed = true;
                         }
                         else
                         {
-                            // Only sync label if resolved successfully
-                            if (canResolveLabel && !string.IsNullOrEmpty(finalName))
-                            {
-                                if (item.UserLabel != finalName) 
-                                { 
-                                    item.UserLabel = finalName; 
-                                    changed = true; 
-                                }
-                            }
-                            
-                            if (canResolveShort && !string.IsNullOrEmpty(finalShort))
-                            {
-                                if (item.TaskbarLabel != finalShort) 
-                                { 
-                                    item.TaskbarLabel = finalShort; 
-                                    changed = true; 
-                                }
-                            }
+                            // [Scientific Fix] 对于已存在的 Item，我们需要确保 DynamicLabel 有初始值
+                            // 否则在插件数据返回前，界面会显示为空或默认 Key，且保存逻辑可能误判
+                            string safeLabel = !string.IsNullOrEmpty(finalName) ? finalName : (tmpl.Meta.Name + " " + output.Key);
+                            string safeShort = !string.IsNullOrEmpty(finalShort) ? finalShort : output.Key;
+
+                            if (string.IsNullOrEmpty(item.DynamicLabel)) item.DynamicLabel = safeLabel;
+                            if (string.IsNullOrEmpty(item.DynamicTaskbarLabel)) item.DynamicTaskbarLabel = safeShort;
+
 
                             if (item.UnitPanel != output.Unit) { item.UnitPanel = output.Unit; changed = true; }
                         }
@@ -454,12 +467,9 @@ namespace LiteMonitor.src.Core.Plugins
                 }
                 else
                 {
-                    if (inputs.TryGetValue(content, out string val) && !string.IsNullOrEmpty(val))
-                    {
-                        resolved = true;
-                    }
+                     if (inputs.ContainsKey(content) && !string.IsNullOrEmpty(inputs[content])) resolved = true;
                 }
-
+                
                 if (!resolved)
                 {
                     success = false;
@@ -467,6 +477,74 @@ namespace LiteMonitor.src.Core.Plugins
                 }
             }
             return success;
+        }
+
+        // ★★★ [UI Fix] 提供一个公共方法，供 UI 层在 DynamicLabel 缺失时"自救"查询 ★★★
+        public string TryGetSmartLabel(string itemKey, string targetField = "label")
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(itemKey) || !itemKey.StartsWith("DASH.")) return "";
+
+                // 1. 尝试从已加载的插件实例中反向查找
+                // Key Format: DASH.{InstanceId}.{Suffix}
+                var settings = Settings.Load();
+                
+                foreach (var inst in settings.PluginInstances)
+                {
+                    string prefix = "DASH." + inst.Id + ".";
+                    if (itemKey.StartsWith(prefix) || itemKey == "DASH." + inst.Id) // 兼容某些怪异 Key
+                    {
+                        // 2. 找到 Template
+                        var tmpl = _templates.FirstOrDefault(t => t.Id == inst.TemplateId);
+                        if (tmpl == null) continue;
+
+                        // 3. 提取 Output Key
+                        string suffix = itemKey.Substring(prefix.Length);
+                        // 如果有 Target Index (例如 DASH.id.0.key)，需要进一步拆解
+                        // 简单处理：遍历所有 Outputs，看 Key 是否匹配
+                        if (tmpl.Outputs != null)
+                        {
+                            foreach (var output in tmpl.Outputs)
+                            {
+                                if (suffix == output.Key || suffix.EndsWith("." + output.Key))
+                                {
+                                    // 4. 构造 Inputs 进行模拟解析
+                                    var mergedInputs = new Dictionary<string, string>(inst.InputValues);
+                                    if (tmpl.Inputs != null)
+                                    {
+                                        foreach (var input in tmpl.Inputs)
+                                            if (!mergedInputs.ContainsKey(input.Key))
+                                                mergedInputs[input.Key] = input.DefaultValue;
+                                    }
+
+                                    // 5. 尝试解析 Label 或 ShortLabel
+                                    string labelPattern;
+                                    if (targetField == "short_label")
+                                        labelPattern = output.ShortLabel;
+                                    else
+                                        labelPattern = output.Label;
+                                    
+                                    // 如果没定义，回退到 Plugin Name
+                                    if (string.IsNullOrEmpty(labelPattern)) labelPattern = tmpl.Meta.Name;
+
+                                    string resolved = PluginProcessor.ResolveTemplate(labelPattern, mergedInputs);
+                                    
+                                    // 如果解析结果为空，或者还是包含 {{ (解析失败)，则回退到插件名
+                                    if (string.IsNullOrEmpty(resolved) || resolved.Contains("{{"))
+                                        return tmpl.Meta.Name + " " + output.Key;
+                                    
+                                    return resolved;
+                                }
+                            }
+                        }
+                        // 没找到 Output，至少返回插件名
+                        return tmpl.Meta.Name;
+                    }
+                }
+            }
+            catch { }
+            return "";
         }
     }
 }

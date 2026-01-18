@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using LiteMonitor;
 using LiteMonitor.src.SystemServices.InfoService;
 
-namespace LiteMonitor.src.Core.Plugins
+namespace LiteMonitor.src.Plugins
 {
     /// <summary>
     /// 插件执行引擎 (Refactored)
@@ -299,8 +299,26 @@ namespace LiteMonitor.src.Core.Plugins
                             }
                         }
                     }
+                    else if (format == "text")
+                    {
+                        // [New] Support text extraction
+                        foreach (var kv in step.Extract)
+                        {
+                            // If value is "$", extract entire raw text
+                            if (kv.Value == "$")
+                            {
+                                context[kv.Key] = resultRaw; // Don't trim if user wants raw, but resultRaw is already string
+                            }
+                        }
+                    }
                 }
 
+                // [Fix] Even if Extract is null, we should allow Process to run (e.g. if Process uses previously extracted vars)
+                // BUT current logic applies transforms AFTER extract.
+                // If Extract is null, context is not updated with new data from resultRaw unless we explicitly extract it.
+                // For text format, we usually extract "$" to a var, then process it.
+                // So the above block handles extraction.
+                
                 PluginProcessor.ApplyTransforms(step.Process, context);
 
                 // 5. 写入缓存 (Deprecated: We now cache RawResponse above)
@@ -375,13 +393,16 @@ namespace LiteMonitor.src.Core.Plugins
                 foreach (var output in tmpl.Outputs)
                 {
                     // 1. 注入数值 (Update InfoService)
-                    string val = PluginProcessor.ResolveTemplate(output.Format, inputs);
+                    string val = PluginProcessor.ResolveTemplate(output.FormatVal, inputs);
                     string injectKey = inst.Id + keySuffix + "." + output.Key;
                     
                     if (string.IsNullOrEmpty(val)) val = "[Empty]";
                     InfoService.Instance.InjectValue(injectKey, val);
 
-                    // 2. 动态更新 Label (Update Memory Only)
+                    // 2. 动态更新 Label (Conditional Update)
+                    // [Strategy] "Write-Once" with Auto-Recovery
+                    // - If label is a System Placeholder (e.g. "Weather main"), it means init failed -> Allow Update.
+                    // - If label is User Custom (or already valid) -> Do NOT Update (Preserve user choice).
                     string itemKey = "DASH." + injectKey;
                     var item = settings.MonitorItems.FirstOrDefault(x => x.Key == itemKey);
                     if (item != null)
@@ -404,27 +425,32 @@ namespace LiteMonitor.src.Core.Plugins
                             }
                         }
 
-                        if (item.UserLabel != newName)
+                        // [Scientific Fix] 分离状态与配置
+                        // 1. 始终更新 DynamicLabel (内存状态)
+                        // 2. 绝不触碰 UserLabel (用户配置)
+                        
+                        if (item.DynamicLabel != newName)
                         {
-                            item.UserLabel = newName;
-                            schemaChanged = true;
+                            item.DynamicLabel = newName;
+                            // 只有当 UserLabel 为空(自动模式)时，DynamicLabel 的变化才需要通知 UI 重绘
+                            if (string.IsNullOrEmpty(item.UserLabel)) schemaChanged = true;
                         }
-                        if (item.TaskbarLabel != newShort)
+                        
+                        // [Scientific Fix] ShortLabel 也采用分离逻辑
+                        if (item.DynamicTaskbarLabel != newShort)
                         {
-                            item.TaskbarLabel = newShort;
-                            schemaChanged = true;
+                            item.DynamicTaskbarLabel = newShort;
+                            if (string.IsNullOrEmpty(item.TaskbarLabel)) schemaChanged = true;
                         }
                     }
                 }
             }
-
+            
             if (schemaChanged)
             {
-                // [Performance Fix] 移除 settings.Save()！
-                // 动态 Label 的变化不应频繁写入磁盘。这些变化是运行时的，下次启动会重新 fetch。
-                // 仅通知 UI 重绘即可。
                 OnSchemaChanged?.Invoke();
             }
+
         }
 
         private void HandleExecutionError(PluginInstanceConfig inst, PluginTemplate tmpl, string keySuffix, Exception ex)

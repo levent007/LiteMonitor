@@ -71,8 +71,22 @@ namespace LiteMonitor.src.UI.Controls
             };
 
             // 2. Name Label (任务栏模式)
+            // [Fix] 优先使用 DisplayLabel (UserLabel ?? DynamicLabel)
             string defName = LanguageManager.T(UIUtils.Intern("Items." + item.Key));
-            string valName = string.IsNullOrEmpty(item.UserLabel) ? defName : item.UserLabel;
+            
+            // ★★★ [自救逻辑] 如果 DisplayLabel 为空，尝试从 PluginManager 抢救一下 ★★★
+            if (string.IsNullOrEmpty(item.DisplayLabel) && item.Key.StartsWith("DASH."))
+            {
+                // 尝试自救
+                var rescue = LiteMonitor.src.Plugins.PluginManager.Instance.TryGetSmartLabel(item.Key);
+                if (!string.IsNullOrEmpty(rescue)) 
+                {
+                    item.DynamicLabel = rescue; // 立即修正内存
+                }
+            }
+            
+            string valName = !string.IsNullOrEmpty(item.DisplayLabel) ? item.DisplayLabel : defName;
+            
             _lblName = new Label
             {
                 Text = valName, 
@@ -93,7 +107,19 @@ namespace LiteMonitor.src.UI.Controls
             string defShortKey = UIUtils.Intern("Short." + item.Key);
             string defShort = LanguageManager.T(defShortKey);
             if (defShort.StartsWith("Short.")) defShort = item.Key.Split('.')[1]; 
-            string valShort = string.IsNullOrEmpty(item.TaskbarLabel) ? defShort : item.TaskbarLabel;
+            
+            // ★★★ [自救逻辑] 如果 DisplayTaskbarLabel 为空，尝试从 PluginManager 抢救一下 ★★★
+            if (string.IsNullOrEmpty(item.DisplayTaskbarLabel) && item.Key.StartsWith("DASH."))
+            {
+                var rescueShort = LiteMonitor.src.Plugins.PluginManager.Instance.TryGetSmartLabel(item.Key, "short_label");
+                if (!string.IsNullOrEmpty(rescueShort)) 
+                {
+                    item.DynamicTaskbarLabel = rescueShort; // 立即修正内存
+                }
+            }
+
+            // [Fix] 优先使用 DisplayTaskbarLabel (TaskbarLabel ?? DynamicTaskbarLabel)
+            string valShort = !string.IsNullOrEmpty(item.DisplayTaskbarLabel) ? item.DisplayTaskbarLabel : defShort;
             
             _inputShort = new LiteUnderlineInput(valShort, "", "", 80, UIColors.TextMain) 
             { Location = new Point(MonitorLayout.X_COL2, UIUtils.S(8)), Visible = false };
@@ -215,8 +241,9 @@ namespace LiteMonitor.src.UI.Controls
                 }
             }
 
-            // 如果等于默认值，且不是特殊空格，则存为空字符串 (表示使用默认)
-            if (valName != " " && string.Equals(valName, originalName, StringComparison.OrdinalIgnoreCase))
+            // 如果等于默认值，或者等于当前的动态值，则存为空字符串 (恢复自动模式)
+            // 否则存为用户自定义值 (锁定模式)
+            if (valName != " " && (string.Equals(valName, originalName, StringComparison.OrdinalIgnoreCase) || valName == Config.DynamicLabel))
                 Config.UserLabel = "";
             else
                 Config.UserLabel = valName;
@@ -226,25 +253,30 @@ namespace LiteMonitor.src.UI.Controls
             string rawShort = _inputShort.Inner.Text;
             string valShort;
             
-            // 如果全是空格且不为空，则保留为一个空格
+            // Handle space logic for short label
             if (rawShort.Length > 0 && string.IsNullOrWhiteSpace(rawShort))
-                valShort = " ";
-            else
-                valShort = rawShort.Trim();
-
-            // 更新输入框显示，实现"所见即所得" (例如用户输入多个空格自动变一个，或者首尾去空格)
-            if (rawShort != valShort)
             {
-                _inputShort.Inner.Text = valShort;
+                valShort = " ";
             }
-
-            string originalShort = LanguageManager.GetOriginal(UIUtils.Intern("Short." + Config.Key));
+            else
+            {
+                valShort = rawShort.Trim();
+            }
             
-            // 如果等于默认值，且不是特殊空格，则存为空字符串 (表示使用默认)
-            if (valShort != " " && string.Equals(valShort, originalShort, StringComparison.OrdinalIgnoreCase))
+            // 同样应用动态值检查逻辑
+            string defShortKey = UIUtils.Intern("Short." + Config.Key);
+            string defShort = LanguageManager.T(defShortKey);
+            if (defShort.StartsWith("Short.")) defShort = Config.Key.Split('.')[1];
+
+            // 如果等于默认值，或者等于当前的动态简称，则存为空字符串 (恢复自动模式)
+            if (valShort != " " && (valShort == defShort || valShort == Config.DynamicTaskbarLabel))
                 Config.TaskbarLabel = "";
             else
                 Config.TaskbarLabel = valShort;
+            
+            // 最终赋值 (逻辑已在上方处理完毕)
+            // 无需再次检查，直接使用计算好的 valShort 即可
+            // (注意：上方的 if/else 块已经给 Config.TaskbarLabel 赋值了，这里需要移除多余的旧代码)
 
             // ★★★ 核心修改：保存单位逻辑 ★★★
             string rawUnit = _inputUnit.Inner.Text; // 【关键】不使用 Trim()，保留用户输入的空格

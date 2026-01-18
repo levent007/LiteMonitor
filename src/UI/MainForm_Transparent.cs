@@ -264,8 +264,8 @@ namespace LiteMonitor
             TrafficLogger.Load();
 
             // 2. 加载并启动插件系统
-            src.Core.Plugins.PluginManager.Instance.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "resources", "plugins"));
-            src.Core.Plugins.PluginManager.Instance.Start();
+            src.Plugins.PluginManager.Instance.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "resources", "plugins"));
+            src.Plugins.PluginManager.Instance.Start();
 
             // 3. 同步插件配置 (已由 PluginManager 自动处理，无需手动 SyncPlugins)
             // _cfg.SyncPlugins(...); 

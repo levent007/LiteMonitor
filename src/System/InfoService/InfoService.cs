@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using LiteMonitor.src.SystemServices;
+using LiteMonitor.src.Core;
 
 namespace LiteMonitor.src.SystemServices.InfoService
 {
@@ -52,6 +53,9 @@ namespace LiteMonitor.src.SystemServices.InfoService
                 _data[KEY_TIME] = DateTime.Now.ToString("ddd HH:mm:ss"); // ★★★ 立即赋值当前时间，不再使用 00:00:00 默认值 ★★★
             }
             
+            // [Fix] Calculate Uptime immediately so it's ready for first render
+            UpdateTimeInfo();
+
             // Trigger first async update
             UpdateData();
         }
@@ -112,8 +116,12 @@ namespace LiteMonitor.src.SystemServices.InfoService
 
             // Uptime
             TimeSpan ts = TimeSpan.FromMilliseconds(Environment.TickCount64);
-            // 格式: 3d 5h 12m
-            string upStr = $"{(int)ts.TotalDays}d {ts.Hours}h {ts.Minutes}m";
+            
+            // Format: 3d 5h 12m (Auto Switch EN/ZH)
+            string upStr = LanguageManager.CurrentLang == "zh"
+                ? $"{(int)ts.TotalDays}天 {ts.Hours}时 {ts.Minutes}分"
+                : $"{(int)ts.TotalDays}d {ts.Hours}h {ts.Minutes}m";
+
             SetData(KEY_UPTIME, upStr);
         }
 

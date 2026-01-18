@@ -4,7 +4,7 @@ using System.Windows.Forms;
 using LiteMonitor.src.UI;
 using LiteMonitor.src.SystemServices;
 using LiteMonitor.src.WebServer; // ★★★ 引用 WebServer 命名空间 ★★★
-using LiteMonitor.src.Core.Plugins;
+using LiteMonitor.src.Plugins;
 
 namespace LiteMonitor.src.Core
 {
