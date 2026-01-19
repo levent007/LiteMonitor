@@ -206,7 +206,7 @@
     {
       "key": "temp",
       "label": "{{city_display ?? city ?? auto_city}}天气",
-      "short_label": "{{city_display ?? city ?? auto_city}}",
+      "short_label": " ",
       "format_val": "{{final_display}}",
       "color": "{{color_state}}",
       "unit": ""

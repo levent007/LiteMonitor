@@ -49,8 +49,8 @@ namespace LiteMonitor
 
             // ★★★ 策略 A: 纯文本模式 (隐藏标签) ★★★
             // 适用于 IP、Dashboard 文本，直接居左显示
-            // 逻辑：如果 ShortLabel 被显式设为空格，则视为隐藏标签
-            bool hideLabel = (it.ShortLabel == " ");
+            // 逻辑：如果 ShortLabel 被显式设为空格或空，则视为隐藏标签
+            bool hideLabel = string.IsNullOrEmpty(it.ShortLabel) || it.ShortLabel == " ";
 
             if (hideLabel)
             {
@@ -58,7 +58,7 @@ namespace LiteMonitor
                 TextRenderer.DrawText(
                     g,
                     value,
-                    t.FontValue,
+                    t.FontItem,
                     rc,
                     valColor,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding
@@ -82,6 +82,7 @@ namespace LiteMonitor
             );
 
             // Value (右对齐)
+            // ★★★ 修复：统一使用 Item 字体 (即标签字体)，与任务栏保持一致 ★★★
             TextRenderer.DrawText(
                 g,
                 value,

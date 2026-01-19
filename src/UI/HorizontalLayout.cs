@@ -87,8 +87,8 @@ namespace LiteMonitor
                     {
                         if (item == null) return 0;
 
-                        // [通用逻辑] 如果隐藏标签 (ShortLabel==" ")，则只计算文本宽
-                        if (item.ShortLabel == " ")
+                        // [通用逻辑] 如果隐藏标签 (ShortLabel 为空 或 " ")，则只计算文本宽
+                        if (string.IsNullOrEmpty(item.ShortLabel) || item.ShortLabel == " ")
                         {
                             // 对于 Dashboard/IP 类，直接使用当前文本作为测量依据
                             // 注意：这里不再用 MaxValueSample，因为这种文本长度是不固定的
@@ -97,7 +97,7 @@ namespace LiteMonitor
 
                             Font valFont = (_mode == LayoutMode.Taskbar) 
                                 ? new Font(s.Font, s.Size, s.Bold ? FontStyle.Bold : FontStyle.Regular) 
-                                : _t.FontValue;
+                                : _t.FontItem;
 
                             int w = TextRenderer.MeasureText(g, valText, valFont,
                                 new Size(int.MaxValue, int.MaxValue),

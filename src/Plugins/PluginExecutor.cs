@@ -52,25 +52,26 @@ namespace LiteMonitor.src.Plugins
             }
         }
 
-        public async Task ExecuteInstanceAsync(PluginInstanceConfig inst, PluginTemplate tmpl, System.Threading.CancellationToken token = default)
+        public async Task<bool> ExecuteInstanceAsync(PluginInstanceConfig inst, PluginTemplate tmpl, System.Threading.CancellationToken token = default)
         {
-            if (inst == null || tmpl == null) return;
+            if (inst == null || tmpl == null) return false;
 
             var targets = inst.Targets != null && inst.Targets.Count > 0 ? inst.Targets : new List<Dictionary<string, string>> { new Dictionary<string, string>() };
 
-            var tasks = new List<Task>();
+            var tasks = new List<Task<bool>>();
             for (int i = 0; i < targets.Count; i++)
             {
                 if (token.IsCancellationRequested) break;
 
                 var idx = i; 
-                tasks.Add(Task.Run(async () => 
+                // Explicitly specify Task<bool> to avoid ambiguity
+                tasks.Add(Task.Run<bool>(async () => 
                 {
-                    if (token.IsCancellationRequested) return;
+                    if (token.IsCancellationRequested) return false;
 
                     if (idx > 0) 
                     {
-                        try { await Task.Delay(idx * 50, token); } catch (OperationCanceledException) { return; }
+                        try { await Task.Delay(idx * 50, token); } catch (OperationCanceledException) { return false; }
                     }
 
                     var mergedInputs = new Dictionary<string, string>(inst.InputValues);
@@ -86,21 +87,24 @@ namespace LiteMonitor.src.Plugins
 
                     string keySuffix = (inst.Targets != null && inst.Targets.Count > 0) ? $".{idx}" : "";
                     
-                    await ExecuteSingleTargetAsync(inst, tmpl, mergedInputs, keySuffix, token);
+                    return await ExecuteSingleTargetAsync(inst, tmpl, mergedInputs, keySuffix, token);
                 }, token));
             }
             try
             {
-                await Task.WhenAll(tasks);
+                var results = await Task.WhenAll(tasks);
+                // If any target succeeded, we consider it a partial success (or maybe we require all? let's be lenient for retry logic)
+                // If ALL failed, return false to trigger fast retry.
+                return results.Any(x => x);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { return false; }
         }
 
-        private async Task ExecuteSingleTargetAsync(PluginInstanceConfig inst, PluginTemplate tmpl, Dictionary<string, string> inputs, string keySuffix, System.Threading.CancellationToken token)
+        private async Task<bool> ExecuteSingleTargetAsync(PluginInstanceConfig inst, PluginTemplate tmpl, Dictionary<string, string> inputs, string keySuffix, System.Threading.CancellationToken token)
         {
             try
             {
-                if (token.IsCancellationRequested) return;
+                if (token.IsCancellationRequested) return false;
 
                 string url = PluginProcessor.ResolveTemplate(tmpl.Execution.Url, inputs);
                 string body = PluginProcessor.ResolveTemplate(tmpl.Execution.Body ?? "", inputs);
@@ -132,7 +136,7 @@ namespace LiteMonitor.src.Plugins
                         {
                             foreach (var step in tmpl.Execution.Steps)
                             {
-                                if (token.IsCancellationRequested) return;
+                                if (token.IsCancellationRequested) return false;
                                 await ExecuteStepAsync(inst, step, inputs, keySuffix, token);
                             }
                         }
@@ -156,13 +160,16 @@ namespace LiteMonitor.src.Plugins
                      string injectKey = inst.Id + keySuffix;
                      InfoService.Instance.InjectValue(injectKey, resultRaw);
                 }
+                return true;
             }
             catch (OperationCanceledException) 
             {
+                return false;
             }
             catch (Exception ex)
             {
                  HandleExecutionError(inst, tmpl, keySuffix, ex);
+                 return false;
             }
         }
 

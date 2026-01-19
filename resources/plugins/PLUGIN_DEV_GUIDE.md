@@ -1,4 +1,4 @@
-# LiteMonitor 插件开发指南 (v2.0)
+# LiteMonitor 插件开发指南 (v1.0)
 
 本指南详细介绍了如何为 LiteMonitor 开发插件。系统采用基于 JSON 的配置模型，支持 API 调用、链式执行、数据解析以及动态 UI 更新。
 
@@ -15,9 +15,9 @@
     "author": "作者",
     "description": "插件功能描述"
   },
-  "inputs": [],
-  "execution": {},
-  "parsing": {}
+  "inputs": [],// 用户输入配置
+  "execution": {},// 执行逻辑配置
+  "parsing": {}// 数据解析配置
 }
 ```
 

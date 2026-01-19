@@ -99,9 +99,9 @@ namespace LiteMonitor
             // ★★★ 优化：直接使用缓存的 ShortLabel，避免每帧生成 Key 和查询字典 ★★★
             string label = item.ShortLabel;
 
-            // ★★★ 修复：如果 ShortLabel 被显式设为空格，则视为隐藏标签 ★★★
+            // ★★★ 修复：如果 ShortLabel 被显式设为空格或空，则视为隐藏标签 ★★★
             // 适用于 IP/Dashboard 文本，直接绘制 Value (左对齐)
-            bool hideLabel = (label == " ");
+            bool hideLabel = (string.IsNullOrEmpty(label) || label == " ");
 
             // 如果不是隐藏，且为空，则回退到 Label 或 Key
             if (!hideLabel)

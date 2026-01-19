@@ -50,7 +50,7 @@ namespace LiteMonitor.src.UI.Controls
 
             this.Layout += (s, e) => {
                 int mid = this.Height / 2;
-                Label.Location = new Point(UIUtils.S(5), mid - Label.Height / 2); // Indent slightly
+                Label.Location = new Point(UIUtils.S(0), mid - Label.Height / 2); // Indent slightly
                 
                 // Position RightControl on the right
                 if (RightControl.Dock != DockStyle.Fill && RightControl.Dock != DockStyle.Top && RightControl.Dock != DockStyle.Bottom)
@@ -127,7 +127,7 @@ namespace LiteMonitor.src.UI.Controls
         {
             this.Dock = DockStyle.Top;
             this.Margin = new Padding(0);
-            this.Padding = UIUtils.S(new Padding(indent + 5, 5, 5, 5));
+            this.Padding = UIUtils.S(new Padding(indent, 5, 5, 5));
             this.AutoSize = true;
 
             var lbl = new Label { 
@@ -209,9 +209,15 @@ namespace LiteMonitor.src.UI.Controls
                 Padding = new Padding(0)
             };
             
-            // 手动垂直居中
-            action.Location = new Point(0, (_header.Height - action.Height) / 2);
+            // 手动垂直居中 (Gap on Left)
+            action.Location = new Point(UIUtils.S(10), (_header.Height - action.Height) / 2);
             
+            // ★★★ Fix: Draw Bottom Line in Wrapper ★★★
+            wrapper.Paint += (s, e) => {
+                 using(var p = new Pen(UIColors.Border))
+                     e.Graphics.DrawLine(p, 0, wrapper.Height - 1, wrapper.Width, wrapper.Height - 1);
+            };
+
             wrapper.Controls.Add(action);
             _header.Controls.Add(wrapper);
             
@@ -633,6 +639,28 @@ namespace LiteMonitor.src.UI.Controls
     }
     public class LiteNavBtn : Button { private bool _isActive; public bool IsActive { get => _isActive; set { _isActive = value; Invalidate(); } } public LiteNavBtn(string text) { Text = "  " + text; Size = new Size(UIUtils.S(150), UIUtils.S(40)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; TextAlign = ContentAlignment.MiddleLeft; Font = new Font("Microsoft YaHei UI", 10F); Cursor = Cursors.Hand; Margin = UIUtils.S(new Padding(5, 2, 5, 2)); BackColor = UIColors.SidebarBg; ForeColor = UIColors.TextMain; } protected override void OnPaint(PaintEventArgs e) { Color bg = _isActive ? UIColors.NavSelected : (ClientRectangle.Contains(PointToClient(Cursor.Position)) ? UIColors.NavHover : UIColors.SidebarBg); using (var b = new SolidBrush(bg)) e.Graphics.FillRectangle(b, ClientRectangle); if (_isActive) { using (var b = new SolidBrush(UIColors.Primary)) e.Graphics.FillRectangle(b, 0, UIUtils.S(8), UIUtils.S(3), Height - UIUtils.S(16)); Font = new Font(Font, FontStyle.Bold); } else { Font = new Font(Font, FontStyle.Regular); } TextRenderer.DrawText(e.Graphics, Text, Font, new Point(UIUtils.S(12), UIUtils.S(9)), UIColors.TextMain); } protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); Invalidate(); } protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Invalidate(); } }
     public class LiteSortBtn : Button { public LiteSortBtn(string txt) { Text = txt; Size = new Size(UIUtils.S(24), UIUtils.S(24)); FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = Color.FromArgb(245, 245, 245); ForeColor = Color.DimGray; Cursor = Cursors.Hand; Font = new Font("Microsoft YaHei UI", 7F, FontStyle.Bold); Margin = new Padding(0); } }
+    
+    // ★★★ New: Header Button (Variable Width) ★★★
+    public class LiteHeaderBtn : Button 
+    { 
+        public LiteHeaderBtn(string txt) 
+        { 
+            Text = txt; 
+            FlatStyle = FlatStyle.Flat; 
+            FlatAppearance.BorderSize = 0; 
+            BackColor = Color.FromArgb(225, 225, 225); 
+            ForeColor = Color.DimGray; 
+            Cursor = Cursors.Hand; 
+            Font = new Font("Microsoft YaHei UI", 8F, FontStyle.Bold); 
+            Margin = new Padding(0);
+            
+            // Auto Width
+            int w = TextRenderer.MeasureText(txt, Font).Width + UIUtils.S(16);
+            Size = new Size(w, UIUtils.S(24));
+        } 
+        public void SetColor(Color c) { ForeColor = c; }
+    }
+
     
     /// <summary>
     /// 终极防闪烁面板

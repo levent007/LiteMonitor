@@ -149,6 +149,7 @@
     "Taskbar": "工作列",
     "MainForm": "主介面",
     "OnlyShowEnabled": "僅看已開啟顯示",
+    "MonitorItemTip": "註：名稱/簡稱輸入空白即可不顯示標籤，名稱全刪儲存後會恢復預設，部分單位支援預留位置{u}+字元",
 
     "__Comment_Page4__": "--- 4. 告警閾值設定 (ThresholdPage) ---",
     "Thresholds": "告警閾值設定",
@@ -186,6 +187,18 @@
     "Auto": "自動模式",
     "UseWinPerCounters": "優先使用系統計數器",
     "UseWinPerCountersTip": "⚠️如數據不準可關閉系統計數器，關閉後，CPU使用率、CPU頻率、記憶體占用、磁碟讀取將直讀硬體感測器",
-    "Refresh": "重新整理頻率"
+    "Refresh": "重新整理頻率",
+
+    "__Comment_Page6__": "--- 6. 插件管理 (PluginPage) ---",
+    "Plugins": "插件管理",
+    "PluginDevGuide": "插件開發規範",
+    "PluginHint": "⚠️說明：如需修改插件的顯示名稱、單位或排序，請前往 [監控項顯示] 設定頁面",
+    "PluginNoInstances": "暫無插件實例",
+    "PluginCreateCopy": "建立副本",
+    "PluginDeleteCopy": "刪除副本",
+    "PluginRemoveTarget": "移除",
+    "PluginTargetTitle": "# 監控目標",
+    "PluginAddTarget": "+ 新增監控目標",
+    "PluginDeleteConfirm": "確定要刪除此插件副本嗎？"
   }
 }

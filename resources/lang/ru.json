@@ -150,6 +150,7 @@
     "Taskbar": "Трей",
     "MainForm": "Окно",
     "OnlyShowEnabled": "Только вкл",
+    "MonitorItemTip": "Прим: Пробел в Имя/Сокр скрывает метку. Пустое имя сбрасывает. Единицы подд. {u}+символ.",
 
     "__Comment_Page4__": "--- 4. Thresholds ---",
     "Thresholds": "Пороги",
@@ -186,6 +187,18 @@
     "Auto": "Авто",
     "UseWinPerCounters": "Системные счетчики",
     "UseWinPerCountersTip": "⚠️Отключите при неточности. CPU/GPU/RAM/Диск читаются из датчиков.",
-    "Refresh": "Частота"
+    "Refresh": "Частота",
+
+    "__Comment_Page6__": "--- 6. Плагины (PluginPage) ---",
+    "Plugins": "Плагины",
+    "PluginDevGuide": "Гайд Dev",
+    "PluginHint": "⚠️Инфо: Измените имя/ед.изм/порядок на стр [Монитор].",
+    "PluginNoInstances": "Нет плагинов",
+    "PluginCreateCopy": "Создать копию",
+    "PluginDeleteCopy": "Удалить копию",
+    "PluginRemoveTarget": "Убрать",
+    "PluginTargetTitle": "# Цель",
+    "PluginAddTarget": "+ Добавить цель",
+    "PluginDeleteConfirm": "Удалить копию?"
   }
 }

@@ -151,6 +151,7 @@
     "Taskbar": "タスクバー",
     "MainForm": "パネル",
     "OnlyShowEnabled": "有効のみ",
+    "MonitorItemTip": "注: 名前/略称にスペースでラベル非表示。空でデフォルト復元。一部単位は{u}+文字対応。",
 
     "__Comment_Page4__": "--- 4. 閾値設定 ---",
     "Thresholds": "アラート閾値",
@@ -187,6 +188,18 @@
     "Auto": "自動",
     "UseWinPerCounters": "システムカウンター優先",
     "UseWinPerCountersTip": "⚠️不正確な場合は無効にしてください。CPU/GPU/RAM/ディスクはセンサーから直接読み取られます。",
-    "Refresh": "更新頻度"
+    "Refresh": "更新頻度",
+
+    "__Comment_Page6__": "--- 6. プラグイン (PluginPage) ---",
+    "Plugins": "プラグイン管理",
+    "PluginDevGuide": "開発ガイド",
+    "PluginHint": "⚠️ヒント: 名前/単位/順序は[表示項目]で変更してください。",
+    "PluginNoInstances": "プラグインなし",
+    "PluginCreateCopy": "コピー作成",
+    "PluginDeleteCopy": "コピー削除",
+    "PluginRemoveTarget": "削除",
+    "PluginTargetTitle": "# ターゲット",
+    "PluginAddTarget": "+ ターゲット追加",
+    "PluginDeleteConfirm": "このコピーを削除しますか？"
   }
 }

@@ -98,7 +98,6 @@
     "ActionTrafficHistory": "打开历史流量统计",
     "WebServer": "网页版显示",
     "WebServerPort": "网页端口",
-    "Plugin.MonitorHint": "如需修改显示名称、单位或排序，请前往 [监控项显示] 页面",
     "OpenWeb": "打开网页",
     "WebServerTip": "⚠️说明：开启网页版显示后，手机可通过“内网IP:端口”打开网页查看监控数据。",
 
@@ -158,6 +157,7 @@
     "MainForm": "主界面",
     "OnlyShowEnabled": "仅看显示项",
     "HorizontalFollowsTaskbar": "横条模式采用任务栏排序",
+    "MonitorItemTip": "注：名称/简称输入空格即可不显示标签，名称全删保存后会恢复默认，部分单位支持占位符{u}+字符",
 
     "__Comment_Page4__": "--- 4. 告警阈值设置 (ThresholdPage) ---",
     "Thresholds": "告警阈值设置",
@@ -196,7 +196,17 @@
     "UseWinPerCounters": "优先使用系统计数器",
     "UseWinPerCountersTip": "⚠️如数据不准可关闭系统计数器，关闭后，CPU使用率、CPU频率、内存占用、磁盘读取将直读硬件传感器",
     "Refresh": "刷新频率",
+    
     "__Comment_Page6__": "--- 6. 插件管理 (PluginPage) ---",
-    "Plugins": "插件管理"
+    "Plugins": "插件管理",
+    "PluginDevGuide": "插件开发规范",
+    "PluginHint": "⚠️说明：如需修改插件的显示名称或排序，请开启插件后前往 [监控项显示] 页面设置",
+    "PluginNoInstances": "暂无插件实例",
+    "PluginCreateCopy": "创建副本",
+    "PluginDeleteCopy": "删除副本",
+    "PluginRemoveTarget": "移除",
+    "PluginTargetTitle": "# 监控目标",
+    "PluginAddTarget": "+ 添加新监控目标",
+    "PluginDeleteConfirm": "确定要删除此插件副本吗？"
   }
 }

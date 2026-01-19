@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using LiteMonitor;
+using System.Diagnostics;
 using LiteMonitor.src.Core;
 using LiteMonitor.src.Plugins;
 using LiteMonitor.src.UI.Controls;
@@ -13,6 +14,7 @@ namespace LiteMonitor.src.UI.SettingsPage
     public class PluginPage : SettingsPageBase
     {
         private Panel _container;
+        private Dictionary<string, LiteCheck> _toggles = new Dictionary<string, LiteCheck>();
 
         public PluginPage()
         {
@@ -24,7 +26,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             { 
                 Dock = DockStyle.Fill, 
                 AutoScroll = true, 
-                Padding = new Padding(20) 
+                Padding = new Padding(20) // 增加内间距
             };
             this.Controls.Add(_container);
         }
@@ -46,24 +48,41 @@ namespace LiteMonitor.src.UI.SettingsPage
             // ★★★ Fix: Save Scroll Position to prevent jumping to top ★★★
             int savedScroll = _container.VerticalScroll.Value;
 
+            // ★★★ Fix: Save Checkbox States to prevent collapsing on rebuild ★★★
+            var savedStates = new Dictionary<string, bool>();
+            foreach (var kvp in _toggles)
+            {
+                if (kvp.Value != null && !kvp.Value.IsDisposed)
+                {
+                    savedStates[kvp.Key] = kvp.Value.Checked;
+                }
+            }
+            _toggles.Clear();
+
             _container.SuspendLayout();
             ClearAndDispose(_container.Controls);
-
+            
             var templates = PluginManager.Instance.GetAllTemplates();
             // Use Config instead of Settings.Load() to ensure consistency with SettingsForm context
             var instances = Config?.PluginInstances ?? Settings.Load().PluginInstances;
 
-            // 1. Hint Note
-            var hint = new LiteNote("⚠️说明：如需修改插件监控目标的显示名称、单位或排序，请前往 [监控项显示] 设置页面");
-            hint.Dock = DockStyle.Top;
+            // 1. Hint Note with Link
+            var linkDoc = new LiteLink(LanguageManager.T("Menu.PluginDevGuide"), () => {
+                try { 
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/Diorser/LiteMonitor/blob/master/resources/plugins/PLUGIN_DEV_GUIDE.md") { UseShellExecute = true }); 
+                } catch { }
+            });
+            var hintRow = new LiteActionRow(LanguageManager.T("Menu.PluginHint"), linkDoc);
+
+            hintRow.Dock = DockStyle.Top;
             var hintWrapper = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 20) };
-            hintWrapper.Controls.Add(hint);
+            hintWrapper.Controls.Add(hintRow);
             _container.Controls.Add(hintWrapper);
             
             if (instances == null || instances.Count == 0)
             {
                 var lbl = new Label { 
-                    Text = "暂无插件实例", 
+                    Text = LanguageManager.T("Menu.PluginNoInstances"), 
                     AutoSize = true, 
                     ForeColor = UIColors.TextSub, 
                     Location = new Point(UIUtils.S(20), UIUtils.S(60)) 
@@ -84,11 +103,22 @@ namespace LiteMonitor.src.UI.SettingsPage
                     {
                         var inst = list[i];
                         bool isDefault = (i == 0); 
-                        CreatePluginGroup(inst, tmpl, isDefault);
+                        bool? savedState = savedStates.ContainsKey(inst.Id) ? savedStates[inst.Id] : (bool?)null;
+                        CreatePluginGroup(inst, tmpl, isDefault, savedState);
                     }
                 }
             }
             
+            // ★★★ Fix: Add a transparent spacer to force bottom padding in AutoScroll ★★★
+            var spacer = new Panel 
+            { 
+                Dock = DockStyle.Top, 
+                Height = 80, 
+                BackColor = Color.Transparent 
+            };
+            _container.Controls.Add(spacer);
+            _container.Controls.SetChildIndex(spacer, 0); // Force to be the last docked item (Bottom)
+
             _container.ResumeLayout();
 
             // ★★★ Fix: Restore Scroll Position ★★★
@@ -99,7 +129,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
         }
 
-        private void CreatePluginGroup(PluginInstanceConfig inst, PluginTemplate tmpl, bool isDefault)
+        private void CreatePluginGroup(PluginInstanceConfig inst, PluginTemplate tmpl, bool isDefault, bool? savedState = null)
         {
             string title = $"{tmpl.Meta.Name} v{tmpl.Meta.Version} (ID: {inst.Id}) by: {tmpl.Meta.Author}";
             var group = new LiteSettingsGroup(title);
@@ -107,15 +137,17 @@ namespace LiteMonitor.src.UI.SettingsPage
             // 1. Header Actions
             if (isDefault)
             {
-                var linkCopy = new LiteLink(LanguageManager.T("Menu.Copy") == "Menu.Copy" ? "复制副本" : LanguageManager.T("Menu.Copy"), () => CopyInstance(inst));
-                group.AddHeaderAction(linkCopy);
+                var btnCopy = new LiteHeaderBtn(LanguageManager.T("Menu.PluginCreateCopy"));
+                btnCopy.SetColor(UIColors.Primary);
+                btnCopy.Click += (s, e) => CopyInstance(inst);
+                group.AddHeaderAction(btnCopy);
             }
             else
             {
-                var linkDel = new LiteLink(LanguageManager.T("Menu.Delete") == "Menu.Delete" ? "删除插件" : LanguageManager.T("Menu.Delete"), () => DeleteInstance(inst));
-                linkDel.ForeColor = Color.IndianRed;
-                linkDel.SetColor(Color.IndianRed, Color.Red);
-                group.AddHeaderAction(linkDel);
+                var btnDel = new LiteHeaderBtn(LanguageManager.T("Menu.PluginDeleteCopy"));
+                btnDel.SetColor(Color.IndianRed);
+                btnDel.Click += (s, e) => DeleteInstance(inst);
+                group.AddHeaderAction(btnDel);
             }
 
             if (!string.IsNullOrEmpty(tmpl.Meta.Description))
@@ -124,8 +156,23 @@ namespace LiteMonitor.src.UI.SettingsPage
             }
 
             // 2. Enable Switch
-            group.AddToggle(this, tmpl.Meta.Name, 
-                () => inst.Enabled, 
+            // Defined here to be used in toggle logic
+            var targetVisibles = new List<Control>();
+
+            // Handle state memory: Use savedState for first render, but inst.Enabled for subsequent refreshes
+            bool usedCache = false;
+            Func<bool> getVal = () => 
+            {
+                if (!usedCache && savedState.HasValue) 
+                {
+                    usedCache = true;
+                    return savedState.Value;
+                }
+                return inst.Enabled;
+            };
+
+            var chk = group.AddToggle(this, tmpl.Meta.Name, 
+                getVal, 
                 v => {
                     if (inst.Enabled != v) {
                         inst.Enabled = v;
@@ -133,9 +180,15 @@ namespace LiteMonitor.src.UI.SettingsPage
                     }
                 }
             );
+            _toggles[inst.Id] = chk;
+
+            // Real-time visibility toggle
+            chk.CheckedChanged += (s, e) => {
+                foreach (var c in targetVisibles) c.Visible = chk.Checked;
+            };
 
             // 3. Refresh Rate
-            group.AddInt(this, "刷新频率", "s", 
+            group.AddInt(this, LanguageManager.T("Menu.Refresh"), "s", 
                 () => inst.CustomInterval > 0 ? inst.CustomInterval : tmpl.Execution.Interval,
                 v => {
                     if (inst.CustomInterval != v) {
@@ -187,7 +240,7 @@ namespace LiteMonitor.src.UI.SettingsPage
                     var targetVals = inst.Targets[i];
                     
                     // Remove Action
-                    var linkRem = new LiteLink("移除", () => {
+                    var linkRem = new LiteLink(LanguageManager.T("Menu.PluginRemoveTarget"), () => {
                         inst.Targets.RemoveAt(index);
                         SaveAndRestart(inst);
                         RebuildUI();
@@ -199,11 +252,12 @@ namespace LiteMonitor.src.UI.SettingsPage
                         linkRem.Enabled = false;
                     }
 
-                    var headerItem = new LiteSettingsItem($"# 监控目标 {index + 1}", linkRem);
+                    var headerItem = new LiteSettingsItem(LanguageManager.T("Menu.PluginTargetTitle") + " " + (index + 1), linkRem);
                     headerItem.Label.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold);
                     headerItem.Label.ForeColor = UIColors.Primary;
                     
                     group.AddFullItem(headerItem);
+                    targetVisibles.Add(headerItem);
 
                     foreach (var input in targetInputs)
                     {
@@ -211,37 +265,78 @@ namespace LiteMonitor.src.UI.SettingsPage
                         
                         if (input.Type == "select" && input.Options != null)
                         {
-                            group.AddComboPair(this, "  " + input.Label, input.Options,
-                                () => targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue,
-                                v => {
-                                    string old = targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue;
-                                    if (old != v) {
-                                        targetVals[input.Key] = v;
-                                        SaveAndRestart(inst);
-                                    }
+                            // Manual AddComboPair to capture item
+                            var cmb = new LiteComboBox();
+                            foreach (var opt in input.Options)
+                            {
+                                string label = "";
+                                string vOpt = "";
+                                
+                                // Reflection to get Label/Value (assuming dynamic/object)
+                                Type t = opt.GetType();
+                                var pLabel = t.GetProperty("Label");
+                                var pValue = t.GetProperty("Value");
+                                
+                                if (pLabel != null) label = pLabel.GetValue(opt)?.ToString();
+                                if (pValue != null) vOpt = pValue.GetValue(opt)?.ToString();
+                                
+                                cmb.AddItem(label, vOpt);
+                            }
+
+                            cmb.SelectValue(targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue);
+                            
+                            this.RegisterDelaySave(() => {
+                                string old = targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue;
+                                if (old != cmb.SelectedValue) {
+                                    targetVals[input.Key] = cmb.SelectedValue;
+                                    SaveAndRestart(inst);
                                 }
-                            );
+                            });
+                            this.RegisterRefresh(() => cmb.SelectValue(targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue));
+                            
+                            // AttachAutoWidth logic inline
+                            cmb.Inner.DropDown += (s, e) => {
+                                var box = (ComboBox)s;
+                                int maxWidth = box.Width;
+                                foreach (var item in box.Items) {
+                                    if (item == null) continue;
+                                    int w = TextRenderer.MeasureText(item.ToString(), box.Font).Width + SystemInformation.VerticalScrollBarWidth + 10;
+                                    if (w > maxWidth) maxWidth = w;
+                                }
+                                box.DropDownWidth = maxWidth;
+                            };
+
+                            var item = new LiteSettingsItem("  " + input.Label, cmb);
+                            group.AddItem(item);
+                            targetVisibles.Add(item);
                         }
                         else
                         {
-                            group.AddInput(this, "  " + input.Label, 
-                                () => targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue,
-                                v => {
-                                    string old = targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue;
-                                    if (old != v) {
-                                        targetVals[input.Key] = v;
-                                        SaveAndRestart(inst);
-                                    }
-                                }, 
-                                input.Placeholder,
-                                HorizontalAlignment.Center // ★ Center alignment for target inputs
+                            // Manual AddInput to capture item
+                            var inputCtrl = new LiteUnderlineInput(
+                                targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue, 
+                                "", "", 100, null, HorizontalAlignment.Center
                             );
+                            if (!string.IsNullOrEmpty(input.Placeholder)) inputCtrl.Placeholder = input.Placeholder;
+
+                            this.RegisterDelaySave(() => {
+                                string old = targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue;
+                                if (old != inputCtrl.Inner.Text) {
+                                    targetVals[input.Key] = inputCtrl.Inner.Text;
+                                    SaveAndRestart(inst);
+                                }
+                            });
+                            this.RegisterRefresh(() => inputCtrl.Inner.Text = targetVals.ContainsKey(input.Key) ? targetVals[input.Key] : input.DefaultValue);
+
+                            var item = new LiteSettingsItem("  " + input.Label, inputCtrl);
+                            group.AddItem(item);
+                            targetVisibles.Add(item);
                         }
                     }
                 }
 
                 // Add Target Button
-                var btnAdd = new LiteButton("+ 添加新监控目标", false, true); 
+                var btnAdd = new LiteButton(LanguageManager.T("Menu.PluginAddTarget"), false, true); 
                 btnAdd.Click += (s, e) => {
                     var newTarget = new Dictionary<string, string>();
                     if (targetInputs != null)
@@ -257,7 +352,11 @@ namespace LiteMonitor.src.UI.SettingsPage
                 
                 group.AddFullItem(btnAdd);
                 btnAdd.Margin = UIUtils.S(new Padding(0, 15, 0, 0));
+                targetVisibles.Add(btnAdd);
             }
+
+            // Initial visibility state
+            foreach (var c in targetVisibles) c.Visible = chk.Checked;
 
             AddGroupToPage(group);
         }
@@ -324,7 +423,7 @@ namespace LiteMonitor.src.UI.SettingsPage
 
         private void DeleteInstance(PluginInstanceConfig inst)
         {
-            if (MessageBox.Show("确定要删除此插件副本吗？", "确认", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            if (MessageBox.Show(LanguageManager.T("Menu.PluginDeleteConfirm"), LanguageManager.T("Menu.OK"), MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 if (Config != null)
                 {

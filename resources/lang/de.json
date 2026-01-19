@@ -150,6 +150,7 @@
     "Taskbar": "Tray",
     "MainForm": "Panel",
     "OnlyShowEnabled": "Nur aktiviert",
+    "MonitorItemTip": "Tipp: Leerzeichen in Name/Kurz verbirgt Label. Leer setzt zurück. Einheiten: {u}+Zeichen.",
 
     "__Comment_Page4__": "--- 4. Grenzwerte ---",
     "Thresholds": "Grenzwerte",
@@ -186,6 +187,18 @@
     "Auto": "Auto",
     "UseWinPerCounters": "Sys Zähler",
     "UseWinPerCountersTip": "⚠️Deaktivieren bei Ungenauigkeit. CPU/GPU/RAM/DISK von Sensoren gelesen.",
-    "Refresh": "Rate"
+    "Refresh": "Rate",
+
+    "__Comment_Page6__": "--- 6. Plugins (PluginPage) ---",
+    "Plugins": "Plugins",
+    "PluginDevGuide": "Entwickler-Guide",
+    "PluginHint": "⚠️Hinweis: Name/Einheit/Reihenfolge unter [Monitor Items] ändern.",
+    "PluginNoInstances": "Keine Plugins",
+    "PluginCreateCopy": "Kopie erstellen",
+    "PluginDeleteCopy": "Kopie löschen",
+    "PluginRemoveTarget": "Entfernen",
+    "PluginTargetTitle": "# Ziel",
+    "PluginAddTarget": "+ Ziel hinzufügen",
+    "PluginDeleteConfirm": "Kopie löschen?"
   }
 }

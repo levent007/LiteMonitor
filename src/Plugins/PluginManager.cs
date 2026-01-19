@@ -258,11 +258,23 @@ namespace LiteMonitor.src.Plugins
                 if (cts.IsCancellationRequested) return;
                 try 
                 {
-                    await _executor.ExecuteInstanceAsync(inst, tmpl, cts.Token);
+                    // Execute and get success status
+                    bool success = await _executor.ExecuteInstanceAsync(inst, tmpl, cts.Token);
+                    
+                    // 动态调整间隔：如果失败，使用快速重试间隔 (5s)；如果成功，恢复正常间隔
+                    if (!success)
+                    {
+                        newTimer.Interval = 5000; // 5 seconds retry
+                    }
+                    else
+                    {
+                        newTimer.Interval = interval * 1000;
+                    }
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Timer execution failed: {ex.Message}");
+                    newTimer.Interval = 5000; // Exception case also fast retry
                 }
                 finally 
                 {

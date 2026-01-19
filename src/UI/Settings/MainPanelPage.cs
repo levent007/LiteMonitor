@@ -156,7 +156,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             bool isChinese = !string.IsNullOrEmpty(Config.Language) && 
                                      Config.Language.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
             
-            group.AddLink("API : http://<IP>:<Port>/api/snapshot (JSON)", 
+            group.AddLink("API (JSON): http://<IP>:<Port>/api/snapshot ", 
                 isChinese ? "内网无法连接？" : "Connection Issue?", 
                 () => ShowFirewallHelp(isChinese));
 

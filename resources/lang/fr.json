@@ -151,6 +151,7 @@
     "Taskbar": "Tray",
     "MainForm": "Panel",
     "OnlyShowEnabled": "Actifs seulement",
+    "MonitorItemTip": "Note: Espace ds Nom/Bref cache libellé. Vide réinit. Unités: {u}+car.",
 
     "__Comment_Page4__": "--- 4. Seuils ---",
     "Thresholds": "Seuils",
@@ -187,6 +188,18 @@
     "Auto": "Auto",
     "UseWinPerCounters": "Compteurs Système",
     "UseWinPerCountersTip": "⚠️Désactiver si inexact. CPU/GPU/RAM/DISK lues depuis capteurs.",
-    "Refresh": "Taux"
+    "Refresh": "Taux",
+
+    "__Comment_Page6__": "--- 6. Plugins (PluginPage) ---",
+    "Plugins": "Plugins",
+    "PluginDevGuide": "Guide Dév",
+    "PluginHint": "⚠️Note: Changer nom/unité/ordre dans [Items Moniteur].",
+    "PluginNoInstances": "Aucun Plugin",
+    "PluginCreateCopy": "Créer Copie",
+    "PluginDeleteCopy": "Suppr Copie",
+    "PluginRemoveTarget": "Retirer",
+    "PluginTargetTitle": "# Cible",
+    "PluginAddTarget": "+ Ajouter Cible",
+    "PluginDeleteConfirm": "Supprimer copie ?"
   }
 }

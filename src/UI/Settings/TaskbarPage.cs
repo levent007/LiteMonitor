@@ -83,6 +83,8 @@ namespace LiteMonitor.src.UI.SettingsPage
             finally
             {
                 this.ResumeLayout(true);
+                // 强制刷新一次布局，解决异步加载字体导致底部留白未被正确计算的问题
+                _container.PerformLayout();
             }
         }
 

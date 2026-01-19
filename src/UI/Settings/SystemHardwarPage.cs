@@ -19,11 +19,6 @@ namespace LiteMonitor.src.UI.SettingsPage
         private LiteComboBox _cbDisk, _cbNet, _cbMobo;
         private LiteComboBox _cbFanCpu, _cbFanPump, _cbFanCase;
 
-        private Task<List<string>> _taskDisks;
-        private Task<List<string>> _taskNets;
-        private Task<List<string>> _taskFans;
-        private Task<List<string>> _taskMobo;
-
         public SystemHardwarPage()
         {
             this.BackColor = UIColors.MainBg;
@@ -32,16 +27,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             _container = new BufferedPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(20) }; 
             this.Controls.Add(_container);
 
-            StartBackgroundTasks();
             InitializeUI();
-        }
-
-        private void StartBackgroundTasks()
-        {
-            _taskDisks = Task.Run(() => HardwareMonitor.ListAllDisks());
-            _taskNets  = Task.Run(() => HardwareMonitor.ListAllNetworks());
-            _taskFans  = Task.Run(() => HardwareMonitor.ListAllFans());
-            _taskMobo  = Task.Run(() => HardwareMonitor.ListAllMoboTemps());
         }
 
         private void InitializeUI()
@@ -65,9 +51,13 @@ namespace LiteMonitor.src.UI.SettingsPage
             {
                 string strAuto = LanguageManager.T("Menu.Auto");
 
-                // 1. 并行等待所有数据返回 (在后台线程完成，不卡UI)
-                // 我们使用 Task.WhenAll 确保所有数据都准备好了才动手
-                await Task.WhenAll(_taskDisks, _taskNets, _taskFans, _taskMobo);
+                // 1. 并行等待所有数据返回 (在 OnShow 时实时获取，确保硬件已初始化)
+                var taskDisks = Task.Run(() => HardwareMonitor.ListAllDisks());
+                var taskNets  = Task.Run(() => HardwareMonitor.ListAllNetworks());
+                var taskFans  = Task.Run(() => HardwareMonitor.ListAllFans());
+                var taskMobo  = Task.Run(() => HardwareMonitor.ListAllMoboTemps());
+
+                await Task.WhenAll(taskDisks, taskNets, taskFans, taskMobo);
 
                 // 2. ★★★ 锁定全局布局 (防止每填一个框就重绘一次) ★★★
                 this.SuspendLayout();
@@ -94,15 +84,14 @@ namespace LiteMonitor.src.UI.SettingsPage
                 }
 
                 // 3. 瞬间填入所有数据 (因为布局被挂起，用户看不见中间过程)
-                // 注意：这里直接取 Task.Result，因为上面已经 await Task.WhenAll 确保完成了
-                FillSync(_cbDisk, _taskDisks.Result, Config.PreferredDisk);
-                FillSync(_cbNet, _taskNets.Result, Config.PreferredNetwork);
-                FillSync(_cbMobo, _taskMobo.Result, Config.PreferredMoboTemp);
+                FillSync(_cbDisk, taskDisks.Result, Config.PreferredDisk);
+                FillSync(_cbNet, taskNets.Result, Config.PreferredNetwork);
+                FillSync(_cbMobo, taskMobo.Result, Config.PreferredMoboTemp);
                 
                 // Fan 的数据是复用的
-                FillSync(_cbFanCpu, _taskFans.Result, Config.PreferredCpuFan);
-                FillSync(_cbFanPump, _taskFans.Result, Config.PreferredCpuPump);
-                FillSync(_cbFanCase, _taskFans.Result, Config.PreferredCaseFan);
+                FillSync(_cbFanCpu, taskFans.Result, Config.PreferredCpuFan);
+                FillSync(_cbFanPump, taskFans.Result, Config.PreferredCpuPump);
+                FillSync(_cbFanCase, taskFans.Result, Config.PreferredCaseFan);
             }
             catch (Exception ex)
             {

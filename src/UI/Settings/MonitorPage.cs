@@ -258,6 +258,18 @@ namespace LiteMonitor.src.UI.SettingsPage
                 }
                 
                 _container.Controls.AddRange(controlsToAdd.ToArray());
+
+            // 底部提示文案
+            var bottomLabel = new Label 
+            { 
+                Text = LanguageManager.T("Menu.MonitorItemTip"), 
+                AutoSize = true, 
+                ForeColor = UIColors.TextSub, 
+                Font = new Font("Microsoft YaHei UI", 8.5F),
+                Dock = DockStyle.Bottom,
+                Padding = new Padding(0, 25, 20, 10)
+            };
+            _container.Controls.Add(bottomLabel);
             }
             finally
             {

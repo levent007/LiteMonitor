@@ -150,6 +150,7 @@
     "Taskbar": "Tray",
     "MainForm": "Panel",
     "OnlyShowEnabled": "Solo activados",
+    "MonitorItemTip": "Tip: Espacio en Nombre/Corto oculta etiqueta. Vacío restaura. Unidades: {u}+car.",
 
     "__Comment_Page4__": "--- 4. Umbrales ---",
     "Thresholds": "Umbrales",
@@ -186,6 +187,18 @@
     "Auto": "Auto",
     "UseWinPerCounters": "Contadores Sistema",
     "UseWinPerCountersTip": "⚠️Desactiva si no es exacto. CPU/GPU/RAM/DISCO leídos desde sensores.",
-    "Refresh": "Tasa"
+    "Refresh": "Tasa",
+
+    "__Comment_Page6__": "--- 6. Plugins (PluginPage) ---",
+    "Plugins": "Plugins",
+    "PluginDevGuide": "Guía Dev",
+    "PluginHint": "⚠️Nota: Cambiar nombre/unidad/orden en [Items Monitor].",
+    "PluginNoInstances": "Sin Plugins",
+    "PluginCreateCopy": "Crear Copia",
+    "PluginDeleteCopy": "Borrar Copia",
+    "PluginRemoveTarget": "Quitar",
+    "PluginTargetTitle": "# Objetivo",
+    "PluginAddTarget": "+ Añadir Objetivo",
+    "PluginDeleteConfirm": "¿Borrar copia?"
   }
 }

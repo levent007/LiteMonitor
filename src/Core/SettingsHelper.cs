@@ -87,8 +87,8 @@ namespace LiteMonitor
             settings.MonitorItems = new List<MonitorItemConfig>
             {
                 // Dashboard Items
-                new MonitorItemConfig { Key = "DASH.HOST", SortIndex = -100, TaskbarSortIndex = 100, VisibleInPanel = true, TaskbarLabel = " " },
-                new MonitorItemConfig { Key = "DASH.Time", SortIndex = -90, TaskbarSortIndex = 200, VisibleInPanel = true, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.HOST", SortIndex = -100, TaskbarSortIndex = 100, VisibleInPanel = false, TaskbarLabel = " " },
+                new MonitorItemConfig { Key = "DASH.Time", SortIndex = -90, TaskbarSortIndex = 200, VisibleInPanel = false, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.Uptime", SortIndex = -80, TaskbarSortIndex = 300, VisibleInPanel = true, TaskbarLabel = " " },
                 new MonitorItemConfig { Key = "DASH.IP",   SortIndex = -70, TaskbarSortIndex = 400, VisibleInPanel = true, TaskbarLabel = " " },
                

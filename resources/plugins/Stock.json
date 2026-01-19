@@ -22,6 +22,7 @@
       "default": "percent_price",
       "options": [
         {"label": "涨幅 + 价格", "value": "percent_price"},
+        {"label": "价格 + 涨幅", "value": "price_percent"},
         {"label": "仅价格", "value": "price"},
         {"label": "仅涨幅", "value": "percent"}
       ],
@@ -99,7 +100,8 @@
             "map": {
               "price": "{{price}}",
               "percent": "{{change_percent}}%",
-              "percent_price": "{{change_percent}}% {{price}}"
+              "percent_price": "{{change_percent}}% {{price}}",
+              "price_percent": "{{price}} {{change_percent}}%"
             }
           },
           {

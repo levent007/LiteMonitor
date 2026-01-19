@@ -25,7 +25,7 @@
     {
       "key": "addr",
       "label": "公网IP",
-      "short_label": "IP",
+      "short_label": " ",
       "format_val": "{{ip}}",
       "unit": ""
     }

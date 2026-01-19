@@ -150,6 +150,7 @@
     "Taskbar": "작업줄",
     "MainForm": "패널",
     "OnlyShowEnabled": "사용중만",
+    "MonitorItemTip": "참고: 이름/약어에 공백 입력 시 라벨 숨김. 이름 삭제 시 기본값 복원. 일부 단위 {u}+문자 지원.",
 
     "__Comment_Page4__": "--- 4. Thresholds ---",
     "Thresholds": "알림 임계값",
@@ -186,6 +187,18 @@
     "Auto": "자동",
     "UseWinPerCounters": "시스템 카운터 우선",
     "UseWinPerCountersTip": "⚠️부정확시 끄세요. CPU/GPU/RAM/디스크는 센서에서 직접 읽습니다.",
-    "Refresh": "갱신 주기"
+    "Refresh": "갱신 주기",
+
+    "__Comment_Page6__": "--- 6. 플러그인 (PluginPage) ---",
+    "Plugins": "플러그인 관리",
+    "PluginDevGuide": "개발 가이드",
+    "PluginHint": "⚠️팁: 이름/단위/순서는 [항목 표시]에서 변경하세요.",
+    "PluginNoInstances": "플러그인 없음",
+    "PluginCreateCopy": "사본 만들기",
+    "PluginDeleteCopy": "사본 삭제",
+    "PluginRemoveTarget": "제거",
+    "PluginTargetTitle": "# 타겟",
+    "PluginAddTarget": "+ 타겟 추가",
+    "PluginDeleteConfirm": "사본을 삭제하시겠습니까?"
   }
 }

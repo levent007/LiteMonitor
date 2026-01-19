@@ -321,13 +321,13 @@ namespace LiteMonitor
             var query = _cfg.MonitorItems
                 .Where(x => forTaskbar ? x.VisibleInTaskbar : x.VisibleInPanel);
 
-            // 2. 排序
-            if (forTaskbar || _cfg.HorizontalFollowsTaskbar)
-                query = query.OrderBy(x => x.TaskbarSortIndex);
-            else
-                query = query.OrderBy(x => x.SortIndex);
-
-            var items = query.ToList();
+            // 2. 排序 (优化：先按组聚类，防止新插件跑到末尾)
+            bool useTaskbarSort = forTaskbar || _cfg.HorizontalFollowsTaskbar;
+            var items = query
+                .GroupBy(x => x.UIGroup)
+                .OrderBy(g => g.Min(item => useTaskbarSort ? item.TaskbarSortIndex : item.SortIndex))
+                .SelectMany(g => g.OrderBy(item => useTaskbarSort ? item.TaskbarSortIndex : item.SortIndex))
+                .ToList();
             var validItems = new List<MonitorItemConfig>();
 
             // [新增] 二次过滤：横条模式不显示 IP
