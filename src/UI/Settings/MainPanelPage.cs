@@ -91,14 +91,14 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddCombo(this, "Menu.Width", 
                 widths.Select(w => w + " px"), 
                 () => Config.PanelWidth + " px",
-                s => Config.PanelWidth = UIUtils.ParseInt(s));
+                s => Config.PanelWidth = MetricUtils.ParseInt(s));
 
             // 4. Opacity
             double[] opacities = { 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4, 0.3 };
             group.AddCombo(this, "Menu.Opacity",
                 opacities.Select(o => Math.Round(o * 100) + "%"),
                 () => Math.Round(Config.Opacity * 100) + "%",
-                s => Config.Opacity = UIUtils.ParseDouble(s) / 100.0);
+                s => Config.Opacity = MetricUtils.ParseDouble(s) / 100.0);
 
             // 5. Memory Mode
             string[] memOptions = { LanguageManager.T("Menu.Percent"), LanguageManager.T("Menu.UsedSize") }; 
@@ -112,7 +112,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             group.AddCombo(this, "Menu.Scale",
                 scales.Select(s => (s * 100) + "%"),
                 () => (Config.UIScale * 100) + "%",
-                s => Config.UIScale = UIUtils.ParseDouble(s) / 100.0);
+                s => Config.UIScale = MetricUtils.ParseDouble(s) / 100.0);
 
             group.AddHint(LanguageManager.T("Menu.MemoryDisplayModeTip"));
 

@@ -1,4 +1,4 @@
-﻿using LiteMonitor.src.Core;
+using LiteMonitor.src.Core;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -38,7 +38,7 @@ namespace LiteMonitor
             ClientSize = UIUtils.S(new Size(360, 280));
 
             var theme = ThemeManager.Current;
-            BackColor = ThemeManager.ParseColor(theme.Color.GroupBackground);
+            BackColor = ThemeManager.ParseColor(theme.Color.Background);
 
             // === 标题 ===
             var lblTitle = new Label

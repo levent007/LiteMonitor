@@ -146,7 +146,7 @@ namespace LiteMonitor
             // GetFormattedText 内部其实已经处理了这部分逻辑，这里再次处理是为了防守
             if (narrow && !it.HasCustomUnit) 
             {
-                valText = UIUtils.FormatHorizontalValue(valText);
+                valText = MetricUtils.FormatHorizontalValue(valText);
             }
 
             Color valColor = it.GetTextColor(t);

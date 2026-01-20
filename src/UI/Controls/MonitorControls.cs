@@ -134,7 +134,7 @@ namespace LiteMonitor.src.UI.Controls
 
             // ★★★ 5. [新增] Unit Input 初始化逻辑 ★★★
             // 1. 根据传入的模式，获取正确的默认单位 (如 Panel="{u}/s", Taskbar="{u}")
-            string defUnit = UIUtils.GetDefaultUnit(item.Key, isTaskbarMode);
+            string defUnit = MetricUtils.GetDefaultUnit(item.Key, isTaskbarMode);
             
             // 2. 获取当前配置值
             string userConfig = isTaskbarMode ? item.UnitTaskbar : item.UnitPanel;
@@ -207,7 +207,7 @@ namespace LiteMonitor.src.UI.Controls
             _isTaskbarMode = isTaskbarMode;
 
             // 重新获取默认值和配置
-            string defUnit = UIUtils.GetDefaultUnit(Config.Key, isTaskbarMode);
+            string defUnit = MetricUtils.GetDefaultUnit(Config.Key, isTaskbarMode);
             string userConfig = isTaskbarMode ? Config.UnitTaskbar : Config.UnitPanel;
 
             // 更新 Input 状态
@@ -290,8 +290,7 @@ namespace LiteMonitor.src.UI.Controls
             string rawUnit = _inputUnit.Inner.Text; // 【关键】不使用 Trim()，保留用户输入的空格
             
             // 获取当前模式下的默认单位，用于对比
-            string defUnit = UIUtils.GetDefaultUnit(Config.Key, _isTaskbarMode);
-
+            string defUnit = MetricUtils.GetDefaultUnit(Config.Key, _isTaskbarMode);
             string finalVal;
 
             if (string.IsNullOrEmpty(rawUnit)) 

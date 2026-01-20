@@ -266,11 +266,11 @@ namespace LiteMonitor
 
         private void UpdateRealtimeStats()
         {
-            _lblSessionUp.Text = UIUtils.FormatDataSize(_cfg.SessionUploadBytes);
-            _lblSessionDown.Text = UIUtils.FormatDataSize(_cfg.SessionDownloadBytes);
+            _lblSessionUp.Text = MetricUtils.FormatDataSize(_cfg.SessionUploadBytes);
+            _lblSessionDown.Text = MetricUtils.FormatDataSize(_cfg.SessionDownloadBytes);
             var today = TrafficLogger.GetTodayStats();
-            _lblTodayUp.Text = UIUtils.FormatDataSize(today.up);
-            _lblTodayDown.Text = UIUtils.FormatDataSize(today.down);
+            _lblTodayUp.Text = MetricUtils.FormatDataSize(today.up);
+            _lblTodayDown.Text = MetricUtils.FormatDataSize(today.down);
         }
 
         private void SwitchView(HistoryViewMode mode)
@@ -317,13 +317,13 @@ namespace LiteMonitor
                 // 现在的代码只做高亮颜色处理。
 
                 row.Cells["Date"].Value = dateText;
-                row.Cells["Up"].Value = UIUtils.FormatDataSize(item.Upload);
-                row.Cells["Down"].Value = UIUtils.FormatDataSize(item.Download);
+                row.Cells["Up"].Value = MetricUtils.FormatDataSize(item.Upload);
+                row.Cells["Down"].Value = MetricUtils.FormatDataSize(item.Download);
 
 
 
                 // ★★★ 修复：将🔥加回 Total 列 ★★★
-                string totalText = UIUtils.FormatDataSize(item.Total);  
+                string totalText = MetricUtils.FormatDataSize(item.Total);  
                 if (isOutlier) totalText = "🔥 " + totalText;
                 row.Cells["Total"].Value = totalText;
 
@@ -343,7 +343,7 @@ namespace LiteMonitor
 
             _grid.ClearSelection();
             string modeName = mode switch { HistoryViewMode.Daily => "日", HistoryViewMode.Weekly => "周", HistoryViewMode.Monthly => "月", HistoryViewMode.Quarterly => "季", _ => "年" };
-            _lblListSummary.Text = $"{modeName}视图总计 (View Total):  ↑ {UIUtils.FormatDataSize(sumUp)}    ↓ {UIUtils.FormatDataSize(sumDown)}    (Σ {UIUtils.FormatDataSize(sumUp + sumDown)})";
+            _lblListSummary.Text = $"{modeName}视图总计 (View Total):  ↑ {MetricUtils.FormatDataSize(sumUp)}    ↓ {MetricUtils.FormatDataSize(sumDown)}    (Σ {MetricUtils.FormatDataSize(sumUp + sumDown)})";
         }
 
         private void Grid_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)

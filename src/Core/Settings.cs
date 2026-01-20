@@ -36,7 +36,7 @@ namespace LiteMonitor
         public string PreferredCpuPump { get; set; } = ""; // 保存用户选的水冷接口
         public string PreferredCaseFan { get; set; } = "";
         public string PreferredMoboTemp { get; set; } = "";
-
+        
         // 主窗体所在的屏幕设备名 (用于记忆上次位置)
         public string ScreenDevice { get; set; } = "";
 
@@ -151,6 +151,28 @@ namespace LiteMonitor
             // 委托给 SettingsHelper 加载
             _instance = SettingsHelper.Load(forceReload);
             return _instance;
+        }
+
+        // ★★★ [New] Helper method to get taskbar style ★★★
+        public TBStyle GetStyle()
+        {
+            if (TaskbarCustomLayout)
+            {
+                return new TBStyle 
+                {
+                    Font = TaskbarFontFamily, Size = TaskbarFontSize, Bold = TaskbarFontBold,
+                    Gap = MetricUtils.ParseInt(TaskbarItemSpacing.ToString()), 
+                    Inner = MetricUtils.ParseInt(TaskbarInnerSpacing.ToString()), 
+                    VOff = MetricUtils.ParseInt(TaskbarVerticalPadding.ToString())
+                };
+            }
+            // ... (Default logic if needed, but for now custom is main path or use UIUtils if logic was there)
+            // For now, let's assume this was moved from somewhere or just return default
+             return new TBStyle 
+            {
+                Font = "Microsoft YaHei UI", Size = 10f, Bold = true,
+                Gap = 6, Inner = 8, VOff = 3
+            };
         }
     }
 

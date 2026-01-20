@@ -237,7 +237,7 @@ namespace LiteMonitor
 
             // [新增] 电池充电状态下，样本增加 " ⚡" 以撑开列宽
             string suffix = "";
-            if (UIUtils.IsBatteryCharging && key.StartsWith("BAT", StringComparison.OrdinalIgnoreCase))
+            if (MetricUtils.IsBatteryCharging && key.StartsWith("BAT", StringComparison.OrdinalIgnoreCase))
             {
                 suffix = "⚡"; 
             }

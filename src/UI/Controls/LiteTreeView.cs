@@ -268,7 +268,7 @@ namespace LiteMonitor.src.UI.Controls
                 case SensorType.Power: return $"{v:F1} W";
                 case SensorType.Data: return $"{v:F1} GB";
                 case SensorType.SmallData: return $"{v:F0} MB";
-                case SensorType.Throughput: return UIUtils.FormatDataSize(v, "/s");
+                case SensorType.Throughput: return MetricUtils.FormatDataSize(v, "/s");
                 default: return $"{v:F1}";
             }
         }

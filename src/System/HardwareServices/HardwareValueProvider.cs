@@ -317,7 +317,7 @@ namespace LiteMonitor.src.SystemServices
                             bool isCharging = sec >= 30;
                             
                             // 必须同步更新全局状态，否则 UI 图标不跳变
-                            UIUtils.IsBatteryCharging = isCharging;
+                            MetricUtils.IsBatteryCharging = isCharging;
 
                             // 1. 计算基础电压 (4芯锂电池: 14.8V - 16.8V)
                             // 放电时电压下降，充电时电压升高
@@ -369,11 +369,11 @@ namespace LiteMonitor.src.SystemServices
                             // 这样即使只显示电压，也能正确判断是否在充电
                             if (_sensorMap.TryGetSensor("BAT.Power", out var pSensor) && pSensor.Value.HasValue)
                             {
-                                UIUtils.IsBatteryCharging = pSensor.Value.Value < 0;
+                                MetricUtils.IsBatteryCharging = pSensor.Value.Value < 0;
                             }
                             else if (_sensorMap.TryGetSensor("BAT.Current", out var cSensor) && cSensor.Value.HasValue)
                             {
-                                UIUtils.IsBatteryCharging = cSensor.Value.Value < 0; // 电流负值表示充电
+                                MetricUtils.IsBatteryCharging = cSensor.Value.Value < 0; // 电流负值表示充电
                             }
 
                             if (_sensorMap.TryGetSensor(key, out var s) && s.Value.HasValue) 

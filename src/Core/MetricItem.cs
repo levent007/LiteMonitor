@@ -139,9 +139,9 @@ namespace LiteMonitor
             {
                 _cachedDisplayValue = DisplayValue;
 
-                var (valStr, rawUnit) = UIUtils.FormatValueParts(Key, DisplayValue);
+                var (valStr, rawUnit) = MetricUtils.FormatValueParts(Key, DisplayValue);
                 CachedValueText = valStr;
-                CachedUnitText = UIUtils.GetDisplayUnit(Key, rawUnit, userFormat);
+                CachedUnitText = MetricUtils.GetDisplayUnit(Key, rawUnit, userFormat);
                 _cachedNormalText = CachedValueText + CachedUnitText;
 
                 if (HasCustomUnit)
@@ -152,8 +152,8 @@ namespace LiteMonitor
                 {
                     if (string.IsNullOrEmpty(userFormat) || userFormat == "Auto")
                     {
-                         string autoUnit = UIUtils.GetDisplayUnit(Key, rawUnit, "Auto"); 
-                         _cachedHorizontalText = UIUtils.FormatHorizontalValue(valStr + autoUnit);
+                         string autoUnit = MetricUtils.GetDisplayUnit(Key, rawUnit, "Auto"); 
+                         _cachedHorizontalText = MetricUtils.FormatHorizontalValue(valStr + autoUnit);
                     }
                     else
                     {
@@ -164,10 +164,10 @@ namespace LiteMonitor
                 // Only calculate color if NOT a plugin item (already handled above)
                 if (!Key.StartsWith("DASH."))
                 {
-                    CachedColorState = UIUtils.GetColorResult(Key, DisplayValue);
+                    CachedColorState = MetricUtils.GetState(Key, DisplayValue);
                 }
                 
-                CachedPercent = UIUtils.GetUnifiedPercent(Key, DisplayValue);
+                CachedPercent = MetricUtils.GetUnifiedPercent(Key, DisplayValue);
             }
             return isHorizontal ? _cachedHorizontalText : _cachedNormalText;
         }

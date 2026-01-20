@@ -115,7 +115,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             int[] rates = { 100, 200, 300, 500, 600, 700, 800, 1000, 1500, 2000, 3000 };
             group.AddCombo(this, "Menu.Refresh", rates.Select(r => r + " ms"),
                 () => (Config?.RefreshMs ?? 1000) + " ms",
-                v => { if (Config != null) Config.RefreshMs = UIUtils.ParseInt(v); }
+                v => { if (Config != null) Config.RefreshMs = MetricUtils.ParseInt(v); }
             );
 
             // ★★★ 修复：强制转换为 LiteComboBox ★★★

@@ -408,7 +408,7 @@ namespace LiteMonitor.src.WebServer
                     float? val = hw.Get(item.Key);
                     if (val != null)
                     {
-                        var parts = UIUtils.FormatValueParts(item.Key, val.Value);
+                        var parts = MetricUtils.FormatValueParts(item.Key, val.Value);
                         valStr = parts.valStr;
                         unit = parts.unitStr;
 
@@ -431,7 +431,7 @@ namespace LiteMonitor.src.WebServer
                             item.Key.Contains("Fan") || item.Key.Contains("Pump") || item.Key.Contains("FPS") ||
                             item.Key.StartsWith("BAT."))
                         {
-                            rawPct = UIUtils.GetAdaptivePercentage(item.Key, val.Value);
+                            rawPct = MetricUtils.GetAdaptivePercentage(item.Key, val.Value);
                         }
                         // Case C: 速率类型 (Net/Disk)
                         else if (isRate)
@@ -455,7 +455,7 @@ namespace LiteMonitor.src.WebServer
                             pct = Math.Max(0.01, Math.Min(1.0, rawPct)) * 100;
                         }
 
-                        status = UIUtils.GetColorResult(item.Key, val.Value);
+                        status = MetricUtils.GetState(item.Key, val.Value);
                     }
 
                     // Primary Logic
