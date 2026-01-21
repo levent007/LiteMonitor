@@ -380,8 +380,16 @@ namespace LiteMonitor.src.WebServer
             {
 
                 // ★★★ 修复：优先显示 DisplayLabel (包含 DynamicLabel)，解决插件名称不显示问题 ★★★
-                string displayName = !string.IsNullOrEmpty(item.DisplayLabel)
-                    ? item.DisplayLabel
+                // 1. 尝试获取 InfoService 中的动态 Label (插件注入)
+                string dynamicLabel = InfoService.Instance.GetValue("PROP.Label." + item.Key);
+                
+                // 2. 确定最终显示名称：用户自定义 > 动态注入 > 静态配置 > 语言包默认
+                string effectiveLabel = !string.IsNullOrEmpty(item.UserLabel) 
+                    ? item.UserLabel 
+                    : (!string.IsNullOrEmpty(dynamicLabel) ? dynamicLabel : item.DynamicLabel);
+
+                string displayName = !string.IsNullOrEmpty(effectiveLabel)
+                    ? effectiveLabel
                     : LanguageManager.T("Items." + item.Key);
                 
                 string groupId = item.UIGroup.ToUpper();
