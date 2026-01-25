@@ -1,16 +1,13 @@
 [English](./README.en.md)
 
 # <img src="./resources/screenshots/logo.png"  width="28" style="vertical-align: middle; margin-top: -4px;" /> LiteMonitor
-一款轻量、可定制的开源桌面硬件监控软件 — 实时监测 CPU、GPU、内存、磁盘、网络等系统性能。
-
+LiteMonitor 是一款基于 **Windows** 的轻量、可定制的开源桌面硬件监控软件 — 实时监测 CPU、GPU、内存、磁盘、网络等系统性能。
+支持横/竖屏/任务栏显示、主题切换、多语言、透明度显示、三色报警等，界面简洁且高度可配置 。
 A lightweight and customizable desktop hardware monitoring tool — real-time monitoring of system performance such as CPU, GPU, memory, disk, and network.
 
 > 🟢 **立即下载最新版本：** [📦 GitHub Releases → LiteMonitor 最新版](https://github.com/Diorser/LiteMonitor/releases/latest)    /  [⏬国内镜像网站下载](https://litemonitor.cn/)    
 
-LiteMonitor 是一款基于 **Windows** 的现代化桌面系统监控工具。  
-支持横/竖屏/任务栏显示、主题切换、多语言、透明度显示、三色报警等，界面简洁且高度可配置 。
-
->已支持【内存清理】和【自定义插件】功能，详见：[插件开发指南（无需编程）](./resources/plugins/PLUGIN_DEV_GUIDE.md#🔌-plugin-system)
+>🆕 已支持【内存清理】和【自定义插件】功能，详见：[插件开发指南（无需编程）](./resources/plugins/PLUGIN_DEV_GUIDE.md#🔌-plugin-system)
 
 
 ![LiteMonitor 主界面](./resources/screenshots/overview.png)
