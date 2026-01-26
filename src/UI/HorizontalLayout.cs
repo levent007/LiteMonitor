@@ -244,27 +244,21 @@ namespace LiteMonitor
                 _ => "999" // 覆盖 Power, Percent(100), Temp(100), DataSize(999), FPS(999) 等
             };
 
-            // [Fix] 横屏模式(Panel)与任务栏模式(Taskbar)均属于水平布局，
-            // 且 HorizontalRenderer 渲染时使用了 GetFormattedText(true) 即 UnitTaskbar 配置，
-            // 因此测量时必须统一使用 Horizontal/Taskbar 的逻辑（紧凑单位、去除 /s 等）。
-            bool isHorizontal = _mode == LayoutMode.Taskbar || _mode == LayoutMode.Horizontal;
-
             // 3. 确定基础单位 (用于占位或替换 {u})
-            // 使用重构后的 GetDefaultUnit，根据模式自动获取正确的单位（包含空格）
+            // HorizontalLayout 专用于横向布局（横条/任务栏），始终使用 Taskbar 上下文获取紧凑单位
             string rawUnit = type switch
             {
                 MetricType.DataSpeed or MetricType.DataSize => "MB",
-                _ => MetricUtils.GetDefaultUnit(item.Key, isHorizontal ? MetricUtils.UnitContext.Taskbar : MetricUtils.UnitContext.Panel)
+                _ => MetricUtils.GetDefaultUnit(item.Key, MetricUtils.UnitContext.Taskbar)
                                 .Replace("{u}", "") // 移除占位符
             };
 
-            // 4. 获取最终显示单位 (处理自定义格式和 Auto 模式)
-            string userFmt = isHorizontal ? item.BoundConfig?.UnitTaskbar : item.BoundConfig?.UnitPanel;
+            // 4. 获取最终显示单位 (始终使用 UnitTaskbar 配置)
+            string userFmt = item.BoundConfig?.UnitTaskbar;
             string unit = MetricUtils.GetDisplayUnit(item.Key, rawUnit, userFmt);
 
-            // [Fix] 任务栏/横屏模式下，GetDisplayUnit 可能会强制加上 /s (针对 DataSpeed)，
-            // 但通常空间紧凑，不显示 /s，这里需要修正以避免列宽过宽。
-            if (isHorizontal && type == MetricType.DataSpeed && unit.EndsWith("/s"))
+            // [Fix] 横向布局空间紧凑，DataSpeed 即使配置了 Auto 也不显示 /s
+            if (type == MetricType.DataSpeed && unit.EndsWith("/s"))
             {
                 unit = unit.Substring(0, unit.Length - 2);
             }
