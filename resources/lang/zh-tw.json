@@ -192,6 +192,7 @@
     "SystemSettings": "系統設定",
     "Language": "語言/Language",
     "AutoStart": "開機啟動",
+    "AutoCheckUpdate": "自動檢查更新",
     "HideTrayIcon": "隱藏托盤圖示",
 
     "Calibration": "硬體參數校準",

@@ -196,6 +196,7 @@
     "SystemSettings": "Général",
     "Language": "Langue",
     "AutoStart": "Démarrage",
+    "AutoCheckUpdate": "Vérif. auto",
     "HideTrayIcon": "Cacher Tray",
 
     "Calibration": "Calibrage",

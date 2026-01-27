@@ -198,6 +198,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             );
 
             group.AddToggle(this, "Menu.AutoStart", () => Config?.AutoStart ?? false, v => { if(Config!=null) Config.AutoStart = v; });
+            group.AddToggle(this, "Menu.AutoCheckUpdate", () => Config?.AutoCheckUpdate ?? true, v => { if(Config!=null) Config.AutoCheckUpdate = v; });
 
             var chkTray = group.AddToggle(this, "Menu.HideTrayIcon", 
                 () => Config?.HideTrayIcon ?? false, 

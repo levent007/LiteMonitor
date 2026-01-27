@@ -195,6 +195,7 @@
     "SystemSettings": "General",
     "Language": "Idioma",
     "AutoStart": "Inicio auto",
+    "AutoCheckUpdate": "Auto-Check",
     "HideTrayIcon": "Ocultar icono",
 
     "Calibration": "Calibración",

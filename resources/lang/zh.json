@@ -194,6 +194,7 @@
     "SystemSettings": "系统设置",
     "Language": "语言/Language",
     "AutoStart": "开机启动",
+    "AutoCheckUpdate": "自动检查更新",
     "HideTrayIcon": "隐藏托盘图标",
 
     "Calibration": "硬件参数校准",

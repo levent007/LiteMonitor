@@ -196,6 +196,7 @@
     "SystemSettings": "一般設定",
     "Language": "言語 / Language",
     "AutoStart": "自動起動",
+    "AutoCheckUpdate": "自動更新確認",
     "HideTrayIcon": "トレイ非表示",
 
     "Calibration": "ハードウェア校正",

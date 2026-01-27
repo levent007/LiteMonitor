@@ -16,6 +16,7 @@ namespace LiteMonitor
         public Point Position { get; set; } = new Point(-1, -1);
 
         // ====== 界面与行为 ======
+        public bool AutoCheckUpdate { get; set; } = true; // ★★★ [新增] 自动检查更新 ★★★
         public bool HorizontalMode { get; set; } = false;
         public double Opacity { get; set; } = 0.85;
         public string Language { get; set; } = "";

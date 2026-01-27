@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
@@ -81,6 +81,10 @@ namespace LiteMonitor
         {
             try
             {
+                // ★★★ [新增] 预检查设置：是否开启自动更新 ★★★
+                var settings = Settings.Load();
+                if (!showMessage && !settings.AutoCheckUpdate) return;
+
                 // ---- 获取版本信息（自动 fallback）----
                 var info = await GetVersionInfo();
                 if (info == null)
@@ -113,7 +117,6 @@ namespace LiteMonitor
                     var sortedUrls = await GetSortedZipUrls(latest);
 
                     // ---- 加载设置并弹出更新窗口 ----
-                    var settings = Settings.Load();
                     bool isZh = settings?.Language?.ToLower() == "zh";
 
                     var context = new DownloadContext

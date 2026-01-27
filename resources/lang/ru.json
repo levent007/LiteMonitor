@@ -195,6 +195,7 @@
     "SystemSettings": "Общее",
     "Language": "Язык",
     "AutoStart": "Автозапуск",
+    "AutoCheckUpdate": "Авто-проверка",
     "HideTrayIcon": "Без иконки",
 
     "Calibration": "Калибровка",
