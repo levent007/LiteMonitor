@@ -182,11 +182,14 @@ namespace LiteMonitor.src.UI.Helpers
             _form.SuspendLayout();
             try
             {
-                _cfg.HorizontalMode = !_cfg.HorizontalMode;
+                // 记录旧模式
+                bool oldMode = _cfg.HorizontalMode;
+                
+                _cfg.HorizontalMode = !oldMode;
                 _cfg.Save();
                 
-                // ★ 统一使用 AppActions，包含自动居中逻辑
-                LiteMonitor.src.Core.Actions.AppActions.ApplyThemeAndLayout(_cfg, _ui, (MainForm)_form);
+                // ★ 统一使用 AppActions，传入旧模式以触发自动居中
+                Core.Actions.AppActions.ApplyThemeAndLayout(_cfg, _ui, (MainForm)_form, oldMode);
             }
             finally
             {

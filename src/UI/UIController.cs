@@ -40,7 +40,6 @@ namespace LiteMonitor
             _cfg = cfg;
             _form = form;
             _mon = new HardwareMonitor(cfg);
-            _mon.OnValuesUpdated += () => _form.Invalidate();
 
             _layout = new UILayout(ThemeManager.Current);
 

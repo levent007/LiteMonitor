@@ -19,17 +19,19 @@ namespace LiteMonitor.src.Core.Actions
         // ★★★ 新增：全局应用入口 ★★★
         public static void ApplyAllSettings(Settings cfg, MainForm mainForm, UIController ui)
         {
-            // 1. 语言变更 (如果有)
-            // 建议：LanguageManager 内部判断如果语言没变则跳过加载，这里直接调
-            ApplyLanguage(cfg, ui, mainForm); 
+            // 0. [核心修复] 在任何逻辑执行前，记录当前的渲染模式
+            // 防止 ApplyLanguage -> ApplyTheme 提前重置了 ui 的状态导致无法判断是否切换了模式
+            bool wasHorizontal = ui.IsLayoutHorizontal;
+
+            // 1. 语言变更 (注意：传 null 给 ui，防止它在此提前触发 ApplyTheme)
+            ApplyLanguage(cfg, null, mainForm); 
 
             // 2. 系统级设置
             ApplyAutoStart(cfg); // 原 SystemHardwarPage 的逻辑
             ApplyWindowAttributes(cfg, mainForm); // 基础窗口属性
 
-            // 3. 界面布局与主题
-            // 这会处理 RefreshMs(Timer重启)、透明度、尺寸、皮肤
-            ApplyThemeAndLayout(cfg, ui, mainForm); 
+            // 3. 界面布局与主题 (传入原始状态以判断是否需要居中)
+            ApplyThemeAndLayout(cfg, ui, mainForm, wasHorizontal); 
             
             // 4. 子模块特定设置
             ApplyMonitorLayout(ui, mainForm); // 监控项、硬件源变更
@@ -135,23 +137,30 @@ namespace LiteMonitor.src.Core.Actions
         // 4. 外观与布局 (主题、缩放、宽度、刷新率、显示模式)
         // =============================================================
 
-        public static void ApplyThemeAndLayout(Settings cfg, UIController? ui, MainForm form)
+        public static void ApplyThemeAndLayout(Settings cfg, UIController? ui, MainForm form, bool? wasHorizontal = null)
         {
-            // 仅当模式切换时（UI状态与配置不符）记录中心点
+            // 1. 确定是否发生了模式切换
+            // 如果外部没传 wasHorizontal，则尝试从 ui 获取当前渲染状态
+            bool oldMode = wasHorizontal ?? (ui?.IsLayoutHorizontal ?? cfg.HorizontalMode);
+            bool modeChanged = (oldMode != cfg.HorizontalMode);
+
             Point? center = null;
-            if (ui != null && ui.IsLayoutHorizontal != cfg.HorizontalMode && form.Visible)
+            if (modeChanged && form.Visible && form.WindowState == FormWindowState.Normal)
             {
                 center = new Point(form.Left + form.Width / 2, form.Top + form.Height / 2);
             }
 
+            // 2. 应用主题
             ui?.ApplyTheme(cfg.Skin);
+            
+            // 3. 强制立即刷新布局以获得正确的新尺寸 (关键：否则 form.Width 还是旧的)
+            //ui?.RebuildLayout();
             
             // 如果切换了横竖屏模式，菜单结构会变，需要重建
             form.RebuildMenus();
-            
-            // 刷新任务栏窗口
             ReloadTaskbarWindows();
 
+            // 4. 执行居中重定位
             if (center.HasValue)
             {
                 form.ApplyRoundedCorners();
