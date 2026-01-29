@@ -56,6 +56,9 @@ namespace LiteMonitor.src.Plugins
                 
                 _http = new HttpClient(new SocketsHttpHandler
                 {
+                    // 关键修复：允许 HttpClient 自动识别并解压 GZip 或 Deflate 数据
+                    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+                    
                     SslOptions = new SslClientAuthenticationOptions
                     {
                         RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
