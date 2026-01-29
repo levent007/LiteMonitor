@@ -385,6 +385,8 @@ namespace LiteMonitor.src.Plugins
                 var handler = new SocketsHttpHandler();
                 handler.Proxy = new System.Net.WebProxy(p);
                 handler.UseProxy = true;
+                // 补上这一行，确保代理请求也能解压缩
+                handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate;
                 handler.SslOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
