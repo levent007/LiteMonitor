@@ -116,7 +116,6 @@ namespace LiteMonitor.src.UI.SettingsPage
 
             group.AddToggle(this, "Menu.TaskbarSingleLine", () => Config?.TaskbarSingleLine ?? false, v => { if(Config!=null) Config.TaskbarSingleLine = v; });
             group.AddToggle(this, "Menu.TaskbarHoverShowAll", () => Config?.TaskbarHoverShowAll ?? false, v => { if (Config != null) Config.TaskbarHoverShowAll = v; });
-            group.AddHint(LanguageManager.T("Menu.TaskbarHoverShowAllTip"));
             group.AddToggle(this, "Menu.ClickThrough", () => Config?.TaskbarClickThrough ?? false, v => { if(Config!=null) Config.TaskbarClickThrough = v; });
            
             // Monitor Selection
@@ -143,7 +142,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 LanguageManager.T("Menu.ActionTaskMgr"), 
                 LanguageManager.T("Menu.ActionSettings"),
                 LanguageManager.T("Menu.ActionTrafficHistory"),
-                LanguageManager.T("Menu.CleanMemory")
+                LanguageManager.T("Menu.CleanMemory"),
+                LanguageManager.T("Menu.OpenWeb")
             };
             group.AddComboIndex(this, "Menu.DoubleClickAction", actions,
                 () => Config?.TaskbarDoubleClickAction ?? 0,

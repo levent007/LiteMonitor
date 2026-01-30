@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using LiteMonitor.src.Core;
+using LiteMonitor.src.Core.Actions;
 using LiteMonitor.src.SystemServices;
 
 namespace LiteMonitor.src.UI.Helpers
@@ -276,6 +277,7 @@ namespace LiteMonitor.src.UI.Helpers
                 case 2: OpenSettings(); break;
                 case 3: OpenTrafficHistory(); break;
                 case 4: CleanMemory(); break;
+                case 5: WebActions.OpenWebMonitor(_cfg); break;
                 case 0: default: ToggleLayoutMode(); break;
             }
         }

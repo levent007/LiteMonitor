@@ -246,6 +246,9 @@ namespace LiteMonitor.src.UI.Helpers
                 case 4: 
                     try { using (var form = new CleanMemoryForm()) await form.StartCleaningAsync(); } catch { } 
                     break;
+                case 5:
+                    Core.Actions.WebActions.OpenWebMonitor(_cfg);
+                    break;
                 case 0: 
                 default:
                     if (mainForm.Visible) mainForm.HideMainWindow(); else mainForm.ShowMainWindow();

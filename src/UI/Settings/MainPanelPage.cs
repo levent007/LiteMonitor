@@ -63,7 +63,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 LanguageManager.T("Menu.ActionTaskMgr"),
                 LanguageManager.T("Menu.ActionSettings"),
                 LanguageManager.T("Menu.ActionTrafficHistory"),
-                LanguageManager.T("Menu.CleanMemory")
+                LanguageManager.T("Menu.CleanMemory"),
+                LanguageManager.T("Menu.OpenWeb")
             };
             group.AddComboIndex(this, "Menu.DoubleClickAction", actions,
                 () => Config.MainFormDoubleClickAction,
@@ -149,18 +150,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             // A. Header with Action Button
             group.AddButton(LanguageManager.T("Menu.WebServerTip"), LanguageManager.T("Menu.OpenWeb"), () => 
             {
-                try 
-                {
-                    string host = "localhost";
-                    if (HardwareMonitor.Instance != null)
-                    {
-                        string ip = HardwareMonitor.Instance.GetNetworkIP();
-                        if (!string.IsNullOrEmpty(ip) && ip != "0.0.0.0" && ip != "127.0.0.1") host = ip;
-                    }
-                    var url = $"http://{host}:{Config.WebServerPort}";
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                }
-                catch (Exception ex) { MessageBox.Show(ex.Message); }
+                Core.Actions.WebActions.OpenWebMonitor(Config);
             });
 
             // B. Settings

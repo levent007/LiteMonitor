@@ -24,10 +24,13 @@ namespace LiteMonitor
         private ContextMenuStrip? _currentMenu;
         private DateTime _lastFindHandleTime = DateTime.MinValue;
         private string _lastLayoutSignature = "";
-        private ToolTip? _toolTip;
+        private readonly TaskbarTooltipHelper _tooltipHelper;
         
         // 公开属性
         public string TargetDevice { get; private set; } = "";
+
+        // 判断菜单是否打开
+        public bool IsMenuOpen => _currentMenu != null && !_currentMenu.IsDisposed && _currentMenu.Visible;
         
         private const int WM_RBUTTONUP = 0x0205;
         private bool _isWin11;
@@ -65,27 +68,9 @@ namespace LiteMonitor
             _timer.Start();
 
             // 鼠标悬浮提示初始化
-            if (_cfg.TaskbarHoverShowAll)
-            {
-                _toolTip = new ToolTip { InitialDelay = 300, AutoPopDelay = 10000, ShowAlways = true };
-                this.MouseEnter += (s, e) => UpdateToolTip();
-            }
+            _tooltipHelper = new TaskbarTooltipHelper(this, _cfg, _ui);
 
             Tick();
-        }
-
-        private void UpdateToolTip()
-        {
-            if (_toolTip == null || !_cfg.TaskbarHoverShowAll || _cfg.TaskbarClickThrough) return;
-
-            var groups = _ui.GetMainGroups();
-            if (groups == null) return;
-
-            var lines = groups.SelectMany(g => 
-                new[] { $"[{g.Label}]" }.Concat(g.Items.Select(it => $"{it.Label}: {it.GetFormattedText(false)}"))
-            );
-
-            _toolTip.SetToolTip(this, string.Join(Environment.NewLine, lines));
         }
 
         public void ReloadLayout()
@@ -94,6 +79,9 @@ namespace LiteMonitor
             _lastLayoutSignature = ""; // 重置签名，强制重算
             _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
             _bizHelper.CheckTheme(true);
+
+            // 更新悬浮窗模式 (支持热切换)
+            _tooltipHelper?.ReloadMode();
 
             // 注意：这里仍然可能因为 _cols 为空而暂时不 Build，
             // 但随后的 Tick 会在获取到新数据后自动 Build
@@ -113,7 +101,7 @@ namespace LiteMonitor
                 _timer.Stop();
                 _timer.Dispose();
                 _currentMenu?.Dispose();
-                _toolTip?.Dispose();
+                _tooltipHelper?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -215,7 +203,7 @@ namespace LiteMonitor
             
             _bizHelper.UpdatePlacement(Width);
             
-            UpdateToolTip();
+            _tooltipHelper.UpdateContent();
 
             Invalidate();
         }

@@ -183,7 +183,7 @@ namespace LiteMonitor
 
             try
             {
-                await System.Threading.Tasks.Task.Run(() => _mon.UpdateAll());
+                await Task.Run(() => _mon.UpdateAll());
 
                 // ① 更新竖屏 items
                 foreach (var g in _groups)

@@ -141,27 +141,7 @@ namespace LiteMonitor
             // 事件：打开网页
             itemWebOpen.Click += (s, e) => 
             {
-                try 
-                {
-                    string host = "localhost";
-                    // ★★★ 核心修改：从 HardwareMonitor 获取真实 IP ★★★
-                    if (HardwareMonitor.Instance != null)
-                    {
-                        string ip = HardwareMonitor.Instance.GetNetworkIP();
-                        // 过滤无效 IP (0.0.0.0 或 127.0.0.1 这种通常没有参考意义，虽然 127 能用但我们优先取局域网IP)
-                        if (!string.IsNullOrEmpty(ip) && ip != "0.0.0.0" && ip != "127.0.0.1") 
-                        {
-                            host = ip;
-                        }
-                    }
-                    
-                    string url = $"http://{host}:{cfg.WebServerPort}/";
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Open Failed: " + ex.Message);
-                }
+                WebActions.OpenWebMonitor(cfg);
             };
 
             itemWeb.ToolTipText = LanguageManager.T("Menu.WebServerTip");
